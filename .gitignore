@@ -8,7 +8,6 @@ build/
 
 # Ignore the "node_modules" dependency directory
 node_modules/
-.package-lock.json
 
 # Ignore specific files by name, anywhere in the repo
 .DS_Store # macOS system files
