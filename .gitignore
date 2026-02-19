@@ -1,0 +1,21 @@
+# Comments start with a hash symbol (#)
+
+# Ignore all files ending with .log (log files)
+*.log
+
+# Ignore all files in the "build" directory
+build/
+
+# Ignore the "node_modules" dependency directory
+node_modules/
+
+# Ignore specific files by name, anywhere in the repo
+.DS_Store # macOS system files
+config.py # or .env files containing sensitive API keys/credentials
+
+# Ignore all files ending with a tilde (~) (backup files)
+*~
+
+# Negation: ignore all .tmp files except for "important.tmp"
+*.tmp
+!important.tmp

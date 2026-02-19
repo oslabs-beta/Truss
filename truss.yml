@@ -1,0 +1,37 @@
+version: "1"
+
+layers:
+  api:
+    - "src/api/**"
+  services:
+    - "src/services/**"
+  db:
+    - "src/db/**"
+
+rules:
+  - name: no-api-to-db
+    from: api
+    disallow: [db]
+    message: API layer must not depend directly on DB layer.
+  - name: no-api-to-services
+    from: api
+    disallow: [services]
+    message: API layer must not depend on services; use dependency injection.
+  - name: no-services-to-db
+    from: services
+    disallow: [db]
+    message: Services layer must not import from DB directly.
+
+# Optional: allow intentional violations with a reason
+suppressions: []
+# Example suppression:
+#   - file: "src/api/legacy-handler.ts"
+#     rule: "no-api-to-db"
+#     reason: "Temporary; will refactor in Q2"
+
+# Optional: skip these paths when scanning
+ignore:
+  - "node_modules"
+  - "dist"
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
