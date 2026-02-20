@@ -41,7 +41,7 @@ export function evaluateRules(opts: {
         ruleName: rule.name,
         fromLayer,
         toLayer,
-        fromFile: edge.fromFile,
+        edge: DependencyEdge.fromFile,
         toFile: edge.toFile,
         line: edge.line,
         importText: edge.importText,
