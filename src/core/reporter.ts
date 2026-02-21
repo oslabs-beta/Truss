@@ -1,21 +1,25 @@
 import { TrussReport } from "./types";
 
-// this fn creates a readable text report for CLI. It shows detailed info about violations.
-//Human formatter: detailed unsuppressed violations + compact summary.
+/**
+ * renderHumanReport()
+ * Purpose: Format TrussReport into readable CLI text output.
+ *
+ * Input:
+ *  - report: final TrussReport object (contains violations and summary)
+ *  - opts.showSuppressed: optional flag to show suppressed violation details
+ *
+ * Output:
+ *  - string (formatted text for terminal)
+ */
 export function renderHumanReport(
-report: TrussReport, 
-opts?: { showSuppressed?: boolean }
+  report: TrussReport,
+  opts?: { showSuppressed?: boolean }
 ): string {
 
-  //store all output lines in arr
   const lines: string[] = [];
-
-  //number of unsuppressed violations
   const uns = report.unsuppressed.length;
-  //number of suppressed violations
   const sup = report.suppressed.length;
 
-//if we have real violat.
   if (uns > 0) {
     lines.push(`Truss: Architectural violations found (${uns})`);
     lines.push("");
@@ -32,7 +36,6 @@ opts?: { showSuppressed?: boolean }
     if (sup > 0) {
       lines.push(`Suppressed violations: ${sup} (intentional, still reported)`);
 
-      //show details only if user wants to suppressed
       if (opts?.showSuppressed) {
         lines.push("");
         for (const v of report.suppressed) {
@@ -47,24 +50,29 @@ opts?: { showSuppressed?: boolean }
       }
     }
 
-    //summary section
     lines.push("Summary:");
     lines.push(`Unsuppressed: ${report.summary.unsuppressedCount}`);
     lines.push(`Suppressed: ${report.summary.suppressedCount}`);
     lines.push(`Total: ${report.summary.totalCount}`);
-    
-    //join all lones into one sttring with new lines
+
     return lines.join("\n");
   }
 
-  //if no violations
   lines.push("Truss: No Architectural violations found");
   lines.push(`Checked ${report.checkedFiles} files`);
   return lines.join("\n");
 }
 
-//this fn creates JSON output
-//used when user wants mashine-readable format
+/**
+ * renderJsonReport()
+ * Purpose: Format TrussReport into machine-readable JSON.
+ *
+ * Input:
+ *  - report: final TrussReport object
+ *
+ * Output:
+ *  - string (JSON format with indentation)
+ */
 export function renderJsonReport(report: TrussReport): string {
   return JSON.stringify(report, null, 2);
 }
