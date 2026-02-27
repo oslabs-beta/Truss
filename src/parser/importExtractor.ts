@@ -2,58 +2,36 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as ts from "typescript";
 import { DependencyEdge } from "../core/types";
+import { FileScanError, ResolveError } from "../utils/errors";
 
-/**
- * List of file extensions we try when resolving local imports.
- */
 const RESOLVABLE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"];
 
-/**
- * Convert absolute file path to repo-relative POSIX path.
- *
- * Input:
- *  - repoRoot: absolute path to repository root
- *  - absPath: absolute file path
- *
- * Output:
- *  - relative path using "/" separators
- *  - null if file is outside repo
- */
 function toRepoRelativePosix(repoRoot: string, absPath: string): string | null {
   const rel = path.relative(repoRoot, absPath);
   if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
   return rel.split(path.sep).join("/");
 }
 
-/**
- * Try to resolve an import specifier to a real file inside the repo.
- *
- * Input:
- *  - repoRoot: repo root path
- *  - fromFile: file where import is located
- *  - specifier: import path string (e.g. "./service")
- *
- * Output:
- *  - repo-relative file path if found
- *  - null if not resolvable or external import
- */
-function resolveImportToFile(
-  repoRoot: string,
-  fromFile: string,
-  specifier: string
-): string | null {
+// External normalization: keep root package name
+// "lodash/get" -> "lodash"
+// "@nestjs/common/testing" -> "@nestjs/common"
+// "node:fs" -> "node:fs"
+function normalizeExternal(specifier: string): string {
+  if (specifier.startsWith("node:")) return specifier;
 
-  // Only resolve local (relative) imports.
-  if (!specifier.startsWith(".") && !specifier.startsWith("/")) return null;
+  if (specifier.startsWith("@")) {
+    const parts = specifier.split("/");
+    return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : specifier;
+  }
 
+  return specifier.split("/")[0] ?? specifier;
+}
+
+function resolveRelativeImportToFile(repoRoot: string, fromFile: string, specifier: string): string | null {
   const fromAbs = path.resolve(repoRoot, fromFile);
   const baseDir = path.dirname(fromAbs);
+  const unresolved = path.resolve(baseDir, specifier);
 
-  const unresolved = specifier.startsWith("/")
-    ? path.resolve(repoRoot, specifier.slice(1))
-    : path.resolve(baseDir, specifier);
-
-  // Try possible file variations (with extension or index file).
   const candidates = [
     unresolved,
     ...RESOLVABLE_EXTENSIONS.map((ext) => `${unresolved}${ext}`),
@@ -62,8 +40,7 @@ function resolveImportToFile(
 
   for (const candidate of candidates) {
     if (!fs.existsSync(candidate)) continue;
-    const stat = fs.statSync(candidate);
-    if (!stat.isFile()) continue;
+    if (!fs.statSync(candidate).isFile()) continue;
 
     return toRepoRelativePosix(repoRoot, candidate);
   }
@@ -71,79 +48,66 @@ function resolveImportToFile(
   return null;
 }
 
-/**
- * parseImportsFromFile()
- * Purpose: Parse one file and extract dependency edges.
- *
- * It detects:
- *  - import declarations
- *  - export ... from
- *  - require()
- *  - dynamic import()
- *
- * Input:
- *  - repoRoot: repository root path
- *  - file: repo-relative file path
- *
- * Output:
- *  - DependencyEdge[] for this file
- */
-export function parseImportsFromFile(opts: {
-  repoRoot: string;
-  file: string;
-}): DependencyEdge[] {
-
+export function parseImportsFromFile(opts: { repoRoot: string; file: string }): DependencyEdge[] {
   const abs = path.resolve(opts.repoRoot, opts.file);
-  if (!fs.existsSync(abs)) return [];
+  if (!fs.existsSync(abs)){
+    throw new FileScanError(`Source file not found: ${opts.file}`)
+  }
+let sourceText: string;
 
-  const sourceText = fs.readFileSync(abs, "utf8");
-  const sourceFile = ts.createSourceFile(
-    abs,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    true
-  );
+  try {
+    sourceText = fs.readFileSync(abs, "utf8")
+  } catch (error) {
+    throw new FileScanError(`Failed to read file: ${opts.file}`)
+  }
+  const sourceFile = ts.createSourceFile(abs, sourceText, ts.ScriptTarget.Latest, true);
 
   const edges: DependencyEdge[] = [];
 
-  /**
-   * Create and push a dependency edge if import is resolvable.
-   */
-  const pushEdge = (specifier: string, node: ts.Node): void => {
-    const toFile = resolveImportToFile(opts.repoRoot, opts.file, specifier);
-    if (!toFile) return; // skip external or unresolvable imports
-
+  function pushEdge(specifier: string, node: ts.Node): void {
     const start = node.getStart(sourceFile);
-    const line =
-      sourceFile.getLineAndCharacterOfPosition(start).line + 1;
-
+    const line = sourceFile.getLineAndCharacterOfPosition(start).line + 1;
     const importText = sourceText.slice(start, node.end).trim();
 
+    // 1) Internal: relative only
+    if (specifier.startsWith(".")) {
+      const toFile = resolveRelativeImportToFile(opts.repoRoot, opts.file, specifier);
+      if (!toFile) {
+        throw new Error(
+          `Import resolution error in ${opts.file}:${line}\n` +
+            `Unresolvable relative import: "${specifier}"\n` +
+            `Import: ${importText}`
+        );
+      }
+
+      edges.push({
+        fromFile: opts.file,
+        toFile,
+        importText,
+        line,
+        importKind: "internal",
+      });
+      return;
+    }
+
+    // 2) External: everything else
     edges.push({
       fromFile: opts.file,
-      toFile,
+      packageName: normalizeExternal(specifier),
       importText,
       line,
-      importKind: "internal", // only internal imports are emitted here
+      importKind: "external",
     });
-  };
+  }
 
-  /**
-   * Visit every AST node recursively.
-   */
-  const visit = (node: ts.Node): void => {
-
+  function visit(node: ts.Node): void {
     // import x from "..."
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
       pushEdge(node.moduleSpecifier.text, node);
     }
 
     // export { ... } from "..."
-    if (
-      ts.isExportDeclaration(node) &&
-      node.moduleSpecifier &&
-      ts.isStringLiteral(node.moduleSpecifier)
-    ) {
+    if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
       pushEdge(node.moduleSpecifier.text, node);
     }
 
@@ -158,20 +122,9 @@ export function parseImportsFromFile(opts: {
       pushEdge(node.arguments[0].text, node);
     }
 
-    // dynamic import("...")
-    if (
-      ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length === 1 &&
-      ts.isStringLiteral(node.arguments[0])
-    ) {
-      pushEdge(node.arguments[0].text, node);
-    }
-
     ts.forEachChild(node, visit);
-  };
+  }
 
   visit(sourceFile);
-
   return edges;
 }

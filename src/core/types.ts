@@ -1,11 +1,20 @@
 //Represents a single dependency between two source files
-export type DependencyEdge = {
-  fromFile: string;
-  toFile: string;
-  importText: string;
-  line: number;
-  importKind: "internal" | "external";
-};
+
+export type DependencyEdge =
+  | {
+      importKind: "internal";
+      fromFile: string;
+      toFile: string;
+      importText: string;
+      line: number;
+    }
+  | {
+      importKind: "external";
+      fromFile: string;
+      packageName: string; // normalized (root package)
+      importText: string;
+      line: number;
+    };
 
 //Represents a rule violation detected during validation
 export type Violation = {

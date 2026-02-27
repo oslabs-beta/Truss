@@ -1,9 +1,10 @@
 import * as path from "node:path";
-import { loadTrussConfig, ConfigError } from "../config/configLoader";
+import { loadTrussConfig } from "../config/configLoader";
 import { discoverSourceFiles } from "../parser/fileScanner";
 import { buildDependencyEdges } from "../graph/dependencyGraph";
 import { applySuppressions, evaluateRules } from "./validator";
 import { CheckOptions, ExitCode, TrussReport } from "./types";
+import { ConfigError } from "../utils/errors";
 
 /**
  * emptyReport()

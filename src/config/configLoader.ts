@@ -2,13 +2,14 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as yaml from "yaml";
 import { TrussConfig } from "./configSchema";
+import { ConfigError } from "../utils/errors";
 
-export class ConfigError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConfigError";
-  }
-}
+// export class ConfigError extends Error {
+//   constructor(message: string) {
+//     super(message);
+//     this.name = "ConfigError";
+//   }
+// }
 
 // Pseudo-flow: read YAML -> validate required shape -> return typed config.
 export function loadTrussConfig(configPath: string): TrussConfig {

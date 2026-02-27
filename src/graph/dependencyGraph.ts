@@ -1,6 +1,7 @@
 import { parseImportsFromFile } from "../parser/importExtractor";
 import { DependencyEdge } from "../core/types";
 
+
 /**
  * buildDependencyEdges()
  * Purpose: Build a full list of dependency edges for all source files.
@@ -32,8 +33,12 @@ export function buildDependencyEdges(opts: {
     (a, b) =>
       a.fromFile.localeCompare(b.fromFile) ||
       a.line - b.line ||
-      a.toFile.localeCompare(b.toFile),
+      targetKey(a).localeCompare(targetKey(b)),
   );
 
   return edges;
+}
+
+function targetKey(e: DependencyEdge): string {
+  return e.importKind === "internal" ? e.toFile : e.packageName
 }

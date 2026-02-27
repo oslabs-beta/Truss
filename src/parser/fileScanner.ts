@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { FileScanError } from "../utils/errors";
 
 const DEFAULT_IGNORES = new Set([
   "node_modules",
@@ -16,24 +17,46 @@ const DEFAULT_IGNORES = new Set([
 
 const EXT_OK = new Set([".ts", ".tsx", ".js", ".jsx"]);
 
-// Pseudo-flow: walk repo recursively, skip ignored dirs, collect supported source files.
+/**
+ * Recursively scans the repository and returns
+ * all source files that match allowed extensions.
+ *
+ * - Starts from repoRoot
+ * - Respects default and extra ignore rules
+ * - Returns repo-relative POSIX paths
+ */
+
 export function discoverSourceFiles(opts: {
   repoRoot: string;
   extraIgnores?: string[];
 }): string[] {
+
+  // Ensure repoRoot is absolute for consistent path handling
   const repoRoot = path.resolve(opts.repoRoot);
+
+  // Build ignore set (default + user-defined)
   const ignore = new Set(DEFAULT_IGNORES);
   for (const i of opts.extraIgnores ?? []) ignore.add(i);
 
   const results: string[] = [];
 
+  //Recursively walks a directory and collects valid source files
   function walk(dirAbs: string): void {
-    const entries = fs.readdirSync(dirAbs, { withFileTypes: true });
+    //const entries = fs.readdirSync(dirAbs, { withFileTypes: true });
+
+    let entries;
+
+    try {
+      entries = fs.readdirSync(dirAbs, { withFileTypes: true })
+    } catch (error) {
+      throw new FileScanError(`Failed to read directory: ${dirAbs}`)
+    }
 
     for (const ent of entries) {
       const abs = path.join(dirAbs, ent.name);
       const rel = path.relative(repoRoot, abs);
 
+      // If entry is a directory, recurse unless ignored
       if (ent.isDirectory()) {
         if (ignore.has(ent.name)) continue;
         walk(abs);
