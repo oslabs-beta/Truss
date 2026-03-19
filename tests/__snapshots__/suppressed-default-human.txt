@@ -1,0 +1,3 @@
+Truss: No Architectural violations found
+Checked 2 files
+Suppressed violations: 1 (intentional, still reported)

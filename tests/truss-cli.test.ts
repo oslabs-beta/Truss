@@ -101,6 +101,14 @@ test("exit code 0 and json snapshot for suppressed-only violations", () => {
   assertSnapshot("suppressed-json.json", result.stdout);
 });
 
+test("human snapshot for suppressed-only violations", () => {
+  const result = runTruss(["--repo", fixturePath("suppressed-repo")]);
+
+  assert.strictEqual(result.status, 0);
+  assert.strictEqual(result.stderr, "");
+  assertSnapshot("suppressed-default-human.txt", result.stdout);
+});
+
 test("human snapshot for suppressed-only violations with details", () => {
   const result = runTruss([
     "--repo",

@@ -14,6 +14,14 @@ function labelPath(displayPath?: string, fallbackPath?: string): string {
   return displayPath ?? fallbackPath ?? "truss.yml";
 }
 
+function buildMissingConfigMessage(shownPath: string): string {
+  if (shownPath === "truss.yml") {
+    return `Config file not found: ${shownPath}. Add a truss.yml at the repo root or pass --config <path>.`;
+  }
+
+  return `Config file not found: ${shownPath}. Create the file at that path or fix --config.`;
+}
+
 function formatYamlError(err: Error, shownPath: string): string {
   const detail = err.message.split("\n")[0].trim();
   const location = detail.match(/at line (\d+), column (\d+)/);
@@ -34,9 +42,7 @@ export function loadTrussConfig(
   const shownPath = labelPath(displayPath, configPath);
 
   if (!fs.existsSync(abs)) {
-    throw new ConfigError(
-      `Config file not found: ${shownPath}. Add a truss.yml at the repo root or pass --config <path>.`,
-    );
+    throw new ConfigError(buildMissingConfigMessage(shownPath));
   }
 
   let parsed: unknown;
