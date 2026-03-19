@@ -104,9 +104,9 @@ export async function runCheck(
 
 // shuangfei below ruleEngine.js
 
-const NoCrossLayerRule = require("./NoCrossLayerRule")
-const SuppressionEngine = require("./SuppressionEngine")
-const { parseInlineSuppressions } = require("./InlineSuppressionParser")
+const NoCrossLayerRule = require("../rules/NoCrossLayerRule")
+const SuppressionEngine = require("../rules/SuppressionEngine")
+const { parseInlineSuppressions } = require("../rules/InlineSuppressionParser")
 
 function getLayerFromPath(path) {
   if (path.includes("api")) return "api"
