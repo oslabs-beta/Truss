@@ -3,14 +3,11 @@ import * as path from "node:path";
 import * as ts from "typescript";
 import { DependencyEdge } from "../core/types";
 import { FileScanError, ResolveError } from "../utils/errors";
-
-const RESOLVABLE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"];
-
-function toRepoRelativePosix(repoRoot: string, absPath: string): string | null {
-  const rel = path.relative(repoRoot, absPath);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
-  return rel.split(path.sep).join("/");
-}
+import { logger } from "../utils/logger";
+import {
+  resolveImportToFile,
+  isLocalSpecifier,
+} from "../utils/pathResolver";
 
 // External normalization: keep root package name
 // "lodash/get" -> "lodash"
@@ -27,40 +24,33 @@ function normalizeExternal(specifier: string): string {
   return specifier.split("/")[0] ?? specifier;
 }
 
-function resolveRelativeImportToFile(repoRoot: string, fromFile: string, specifier: string): string | null {
-  const fromAbs = path.resolve(repoRoot, fromFile);
-  const baseDir = path.dirname(fromAbs);
-  const unresolved = path.resolve(baseDir, specifier);
-
-  const candidates = [
-    unresolved,
-    ...RESOLVABLE_EXTENSIONS.map((ext) => `${unresolved}${ext}`),
-    ...RESOLVABLE_EXTENSIONS.map((ext) => path.join(unresolved, `index${ext}`)),
-  ];
-
-  for (const candidate of candidates) {
-    if (!fs.existsSync(candidate)) continue;
-    if (!fs.statSync(candidate).isFile()) continue;
-
-    return toRepoRelativePosix(repoRoot, candidate);
-  }
-
-  return null;
-}
-
-export function parseImportsFromFile(opts: { repoRoot: string; file: string }): DependencyEdge[] {
+export function parseImportsFromFile(opts: {
+  repoRoot: string;
+  file: string;
+}): DependencyEdge[] {
   const abs = path.resolve(opts.repoRoot, opts.file);
-  if (!fs.existsSync(abs)){
-    throw new FileScanError(`Source file not found: ${opts.file}`)
+
+  logger.debug(`Parsing imports in file: ${opts.file}`);
+
+  if (!fs.existsSync(abs)) {
+    throw new FileScanError(`Source file not found: ${opts.file}`);
   }
-let sourceText: string;
+
+  let sourceText: string;
 
   try {
-    sourceText = fs.readFileSync(abs, "utf8")
-  } catch (error) {
-    throw new FileScanError(`Failed to read file: ${opts.file}`)
+    sourceText = fs.readFileSync(abs, "utf8");
+  } catch {
+    logger.error(`Failed to read file: ${opts.file}`);
+    throw new FileScanError(`Failed to read file: ${opts.file}`);
   }
-  const sourceFile = ts.createSourceFile(abs, sourceText, ts.ScriptTarget.Latest, true);
+
+  const sourceFile = ts.createSourceFile(
+    abs,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+  );
 
   const edges: DependencyEdge[] = [];
 
@@ -69,14 +59,19 @@ let sourceText: string;
     const line = sourceFile.getLineAndCharacterOfPosition(start).line + 1;
     const importText = sourceText.slice(start, node.end).trim();
 
-    // 1) Internal: relative only
-    if (specifier.startsWith(".")) {
-      const toFile = resolveRelativeImportToFile(opts.repoRoot, opts.file, specifier);
+    // Internal imports: "./x", "../x", "/src/x"
+    if (isLocalSpecifier(specifier)) {
+      const toFile = resolveImportToFile(opts.repoRoot, opts.file, specifier);
+
       if (!toFile) {
-        throw new Error(
+        logger.error(
+          `Failed to resolve import "${specifier}" in ${opts.file}:${line}`,
+        );
+
+        throw new ResolveError(
           `Import resolution error in ${opts.file}:${line}\n` +
-            `Unresolvable relative import: "${specifier}"\n` +
-            `Import: ${importText}`
+            `Unresolvable local import: "${specifier}"\n` +
+            `Import: ${importText}`,
         );
       }
 
@@ -87,10 +82,11 @@ let sourceText: string;
         line,
         importKind: "internal",
       });
+
       return;
     }
 
-    // 2) External: everything else
+    // External imports: "react", "express", "@nestjs/common", "node:fs"
     edges.push({
       fromFile: opts.file,
       packageName: normalizeExternal(specifier),
@@ -101,17 +97,21 @@ let sourceText: string;
   }
 
   function visit(node: ts.Node): void {
-    // import x from "..."
-    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
       pushEdge(node.moduleSpecifier.text, node);
     }
 
-    // export { ... } from "..."
-    if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+    if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
       pushEdge(node.moduleSpecifier.text, node);
     }
 
-    // require("...")
     if (
       ts.isCallExpression(node) &&
       ts.isIdentifier(node.expression) &&

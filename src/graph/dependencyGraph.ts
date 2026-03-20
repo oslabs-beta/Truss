@@ -1,5 +1,6 @@
 import { parseImportsFromFile } from "../parser/importExtractor";
 import { DependencyEdge } from "../core/types";
+import { logger } from "../utils/logger";
 
 
 /**
@@ -21,6 +22,8 @@ export function buildDependencyEdges(opts: {
 }): DependencyEdge[] {
   const edges: DependencyEdge[] = [];
 
+  logger.debug(`Building dependency edges for ${opts.files.length} files`);
+
   // For each file, extract all import statements
   // and convert them into DependencyEdge objects.
   for (const file of opts.files) {
@@ -35,6 +38,8 @@ export function buildDependencyEdges(opts: {
       a.line - b.line ||
       targetKey(a).localeCompare(targetKey(b)),
   );
+
+  logger.debug(`Final dependency edge count: ${edges.length}`);
 
   return edges;
 }
