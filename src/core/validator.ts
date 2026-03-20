@@ -58,6 +58,10 @@ export function evaluateRules(opts: {
   const violations: Violation[] = [];
 
   for (const edge of edges) {
+    // External package imports are ignored by layer validation.
+    // They do not have "toFile", so skip them before accessing that field.
+    if (edge.importKind !== "internal") continue;
+
     // Find layers for both sides of the dependency.
     const fromLayer = getLayer(edge.fromFile);
     const toLayer = getLayer(edge.toFile);
@@ -77,7 +81,7 @@ export function evaluateRules(opts: {
         ruleName: rule.name,
         fromLayer,
         toLayer,
-        edge, // store the full edge object here
+        edge,
         reason: rule.message ?? `${fromLayer} layer must not depend on ${toLayer} layer.`,
       });
     }
@@ -109,7 +113,7 @@ export function applySuppressions(opts: {
   for (const v of opts.violations) {
     // Find suppression that matches "from file" + rule name.
     const s = suppressions.find(
-      (x) => x.file === v.edge.fromFile && x.rule === v.ruleName
+      (x) => x.file === v.edge.fromFile && x.rule === v.ruleName,
     );
 
     if (s) suppressed.push({ ...v, suppressionReason: s.reason });
