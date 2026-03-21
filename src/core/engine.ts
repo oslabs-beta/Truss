@@ -3,18 +3,16 @@ import { loadTrussConfig } from "../config/configLoader";
 import { discoverSourceFiles } from "../parser/fileScanner";
 import { buildDependencyEdges } from "../graph/dependencyGraph";
 import { applySuppressions, evaluateRules } from "./validator";
-import { CheckOptions, ExitCode, TrussReport } from "./types";
+import {
+  AnalysisCategoryCounts,
+  AnalysisDiagnostic,
+  CheckOptions,
+  CheckRunResult,
+  ExitCode,
+  ParserIssue,
+  TrussReport,
+} from "./types";
 import { ConfigError } from "../utils/errors";
-
-export type CheckRunResult =
-  | {
-      exitCode: typeof ExitCode.OK | typeof ExitCode.VIOLATIONS;
-      report: TrussReport;
-    }
-  | {
-      exitCode: typeof ExitCode.CONFIG_ERROR | typeof ExitCode.INTERNAL_ERROR;
-      error: string;
-    };
 
 /**
  * runCheck()
@@ -60,8 +58,10 @@ export async function runCheck(
       );
     }
 
-    // Build a dependency graph as edges: fromFile -> toFile for every import.
-    const edges = buildDependencyEdges({ repoRoot, files });
+    // Build a dependency graph and collect parser-level issues per file.
+    const graph = buildDependencyEdges({ repoRoot, files });
+    const edges = graph.edges;
+    const parserIssues = graph.parserIssues;
 
     // Check edges against architecture rules and collect all violations.
     const { violations } = evaluateRules({ config, edges });
@@ -71,15 +71,25 @@ export async function runCheck(
     // - suppressed (allowed with reason)
     const { unsuppressed, suppressed } = applySuppressions({ config, violations });
 
+    const diagnostics = buildDiagnostics(parserIssues);
+    const categories = countDiagnosticCategories(diagnostics);
+
     // Create final report object for rendering (human or JSON).
     const report: TrussReport = {
       checkedFiles: files.length,
       edges: edges.length,
       unsuppressed,
       suppressed,
+      parserIssues,
+      analysis: {
+        diagnostics,
+        categories,
+      },
       summary: {
         unsuppressedCount: unsuppressed.length,
         suppressedCount: suppressed.length,
+        parserIssueCount: parserIssues.length,
+        diagnosticCount: diagnostics.length,
         totalCount: unsuppressed.length + suppressed.length,
       },
     };
@@ -88,7 +98,7 @@ export async function runCheck(
     const exitCode =
       report.summary.unsuppressedCount > 0 ? ExitCode.VIOLATIONS : ExitCode.OK;
 
-    return { exitCode, report };
+    return { exitCode, report, analysis: report.analysis };
   } catch (e) {
     // If config is invalid or missing, return config error code.
     if (e instanceof ConfigError) {
@@ -101,4 +111,33 @@ export async function runCheck(
       error: `Internal error: ${(e as Error).message}`,
     };
   }
+}
+
+function buildDiagnostics(parserIssues: ParserIssue[]): AnalysisDiagnostic[] {
+  return parserIssues.map((issue) => ({
+    category: "parser",
+    code: issue.code,
+    severity: issue.severity,
+    message: issue.message,
+    file: issue.fromFile,
+    line: issue.line,
+    importText: issue.importText,
+  }));
+}
+
+function countDiagnosticCategories(
+  diagnostics: AnalysisDiagnostic[]
+): AnalysisCategoryCounts {
+  const counts: AnalysisCategoryCounts = {
+    parser: 0,
+    graph: 0,
+    validation: 0,
+    suppression: 0,
+  };
+
+  for (const diagnostic of diagnostics) {
+    counts[diagnostic.category] += 1;
+  }
+
+  return counts;
 }

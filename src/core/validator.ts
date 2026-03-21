@@ -58,6 +58,9 @@ export function evaluateRules(opts: {
   const violations: Violation[] = [];
 
   for (const edge of edges) {
+    // Layer-to-layer architectural rules only apply to internal file imports.
+    if (edge.importKind !== "internal") continue;
+
     // Find layers for both sides of the dependency.
     const fromLayer = getLayer(edge.fromFile);
     const toLayer = getLayer(edge.toFile);

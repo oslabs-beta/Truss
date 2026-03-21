@@ -101,6 +101,32 @@ test("exit code 0 and json snapshot for suppressed-only violations", () => {
   assertSnapshot("suppressed-json.json", result.stdout);
 });
 
+test("json includes parser diagnostics and category counts", () => {
+  const result = runTruss([
+    "--repo",
+    fixturePath("parser-issue-repo"),
+    "--format",
+    "json",
+  ]);
+
+  assert.strictEqual(result.status, 0);
+  assert.strictEqual(result.stderr, "");
+
+  const parsed = JSON.parse(result.stdout) as {
+    parserIssues: Array<{ code: string }>;
+    analysis: { diagnostics: Array<{ category: string }>; categories: Record<string, number> };
+    summary: { parserIssueCount: number; diagnosticCount: number };
+  };
+
+  assert.strictEqual(parsed.parserIssues.length, 1);
+  assert.strictEqual(parsed.parserIssues[0]?.code, "UNRESOLVABLE_RELATIVE_IMPORT");
+  assert.strictEqual(parsed.analysis.diagnostics.length, 1);
+  assert.strictEqual(parsed.analysis.diagnostics[0]?.category, "parser");
+  assert.strictEqual(parsed.analysis.categories.parser, 1);
+  assert.strictEqual(parsed.summary.parserIssueCount, 1);
+  assert.strictEqual(parsed.summary.diagnosticCount, 1);
+});
+
 test("human snapshot for suppressed-only violations", () => {
   const result = runTruss(["--repo", fixturePath("suppressed-repo")]);
 

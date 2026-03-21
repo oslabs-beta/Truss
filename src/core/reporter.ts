@@ -25,6 +25,7 @@ export function renderHumanReport(
   const lines: string[] = [];
   const uns = report.unsuppressed.length;
   const sup = report.suppressed.length;
+  const parserIssueCount = report.parserIssues.length;
 
   if (uns > 0) {
     lines.push(`Truss: Architectural violations found (${uns})`);
@@ -56,9 +57,25 @@ export function renderHumanReport(
       }
     }
 
+    if (parserIssueCount > 0) {
+      lines.push("");
+      lines.push(`Parser issues: ${parserIssueCount} (analysis continued)`);
+      lines.push("Diagnostics by category:");
+      lines.push(`- parser: ${report.analysis.categories.parser}`);
+      lines.push(`- graph: ${report.analysis.categories.graph}`);
+      lines.push(`- validation: ${report.analysis.categories.validation}`);
+      lines.push(`- suppression: ${report.analysis.categories.suppression}`);
+    }
+
     lines.push("Summary:");
     lines.push(`Unsuppressed: ${report.summary.unsuppressedCount}`);
     lines.push(`Suppressed: ${report.summary.suppressedCount}`);
+    if (report.summary.parserIssueCount > 0) {
+      lines.push(`Parser issues: ${report.summary.parserIssueCount}`);
+    }
+    if (report.summary.diagnosticCount > 0) {
+      lines.push(`Diagnostics: ${report.summary.diagnosticCount}`);
+    }
     lines.push(`Total: ${report.summary.totalCount}`);
 
     return lines.join("\n");
@@ -82,6 +99,10 @@ export function renderHumanReport(
         if (index < report.suppressed.length - 1) lines.push("");
       });
     }
+  }
+
+  if (parserIssueCount > 0) {
+    lines.push(`Parser issues: ${parserIssueCount} (analysis continued)`);
   }
 
   return lines.join("\n");
@@ -108,9 +129,13 @@ export function buildJsonReport(report: TrussReport, exitCode: number): JsonRepo
     edges: report.edges,
     unsuppressed,
     suppressed,
+    parserIssues: report.parserIssues,
+    analysis: report.analysis,
     summary: {
       unsuppressedCount: report.summary.unsuppressedCount,
       suppressedCount: report.summary.suppressedCount,
+      parserIssueCount: report.summary.parserIssueCount,
+      diagnosticCount: report.summary.diagnosticCount,
       totalCount: report.summary.totalCount,
     },
   };

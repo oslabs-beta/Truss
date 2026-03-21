@@ -7,6 +7,7 @@ const fileScanner_1 = require("../parser/fileScanner");
 const dependencyGraph_1 = require("../graph/dependencyGraph");
 const validator_1 = require("./validator");
 const types_1 = require("./types");
+const errors_1 = require("../utils/errors");
 /**
  * runCheck()
  * Purpose: Main orchestration function for "truss check".
@@ -38,35 +39,46 @@ async function runCheck(opts) {
         });
         // If we found nothing, config/paths are probably wrong.
         if (files.length === 0) {
-            throw new configLoader_1.ConfigError("No source files found (.ts/.tsx/.js/.jsx). Check repoRoot/ignore settings.");
+            throw new errors_1.ConfigError("No source files found (.ts/.tsx/.js/.jsx). Check repoRoot/ignore settings.");
         }
-        // Build a dependency graph as edges: fromFile -> toFile for every import.
-        const edges = (0, dependencyGraph_1.buildDependencyEdges)({ repoRoot, files });
+        // Build a dependency graph and collect parser-level issues per file.
+        const graph = (0, dependencyGraph_1.buildDependencyEdges)({ repoRoot, files });
+        const edges = graph.edges;
+        const parserIssues = graph.parserIssues;
         // Check edges against architecture rules and collect all violations.
         const { violations } = (0, validator_1.evaluateRules)({ config, edges });
         // Split violations into:
         // - unsuppressed (real failures)
         // - suppressed (allowed with reason)
         const { unsuppressed, suppressed } = (0, validator_1.applySuppressions)({ config, violations });
+        const diagnostics = buildDiagnostics(parserIssues);
+        const categories = countDiagnosticCategories(diagnostics);
         // Create final report object for rendering (human or JSON).
         const report = {
             checkedFiles: files.length,
             edges: edges.length,
             unsuppressed,
             suppressed,
+            parserIssues,
+            analysis: {
+                diagnostics,
+                categories,
+            },
             summary: {
                 unsuppressedCount: unsuppressed.length,
                 suppressedCount: suppressed.length,
+                parserIssueCount: parserIssues.length,
+                diagnosticCount: diagnostics.length,
                 totalCount: unsuppressed.length + suppressed.length,
             },
         };
         // Exit code depends only on unsuppressed violations.
         const exitCode = report.summary.unsuppressedCount > 0 ? types_1.ExitCode.VIOLATIONS : types_1.ExitCode.OK;
-        return { exitCode, report };
+        return { exitCode, report, analysis: report.analysis };
     }
     catch (e) {
         // If config is invalid or missing, return config error code.
-        if (e instanceof configLoader_1.ConfigError) {
+        if (e instanceof errors_1.ConfigError) {
             return { exitCode: types_1.ExitCode.CONFIG_ERROR, error: e.message };
         }
         // Any other error is treated as internal error.
@@ -75,4 +87,27 @@ async function runCheck(opts) {
             error: `Internal error: ${e.message}`,
         };
     }
+}
+function buildDiagnostics(parserIssues) {
+    return parserIssues.map((issue) => ({
+        category: "parser",
+        code: issue.code,
+        severity: issue.severity,
+        message: issue.message,
+        file: issue.fromFile,
+        line: issue.line,
+        importText: issue.importText,
+    }));
+}
+function countDiagnosticCategories(diagnostics) {
+    const counts = {
+        parser: 0,
+        graph: 0,
+        validation: 0,
+        suppression: 0,
+    };
+    for (const diagnostic of diagnostics) {
+        counts[diagnostic.category] += 1;
+    }
+    return counts;
 }
