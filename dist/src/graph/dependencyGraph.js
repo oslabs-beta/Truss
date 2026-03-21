@@ -17,15 +17,21 @@ const importExtractor_1 = require("../parser/importExtractor");
  */
 function buildDependencyEdges(opts) {
     const edges = [];
+    const parserIssues = [];
     // For each file, extract all import statements
     // and convert them into DependencyEdge objects.
     for (const file of opts.files) {
-        edges.push(...(0, importExtractor_1.parseImportsFromFile)({ repoRoot: opts.repoRoot, file }));
+        const parsed = (0, importExtractor_1.parseImportsFromFile)({ repoRoot: opts.repoRoot, file });
+        edges.push(...parsed.edges);
+        parserIssues.push(...parsed.parserIssues);
     }
     // Sort edges for stable and deterministic output.
     // First by source file, then by line number, then by target file.
     edges.sort((a, b) => a.fromFile.localeCompare(b.fromFile) ||
         a.line - b.line ||
-        a.toFile.localeCompare(b.toFile));
-    return edges;
+        targetKey(a).localeCompare(targetKey(b)));
+    return { edges, parserIssues };
+}
+function targetKey(e) {
+    return e.importKind === "internal" ? e.toFile : e.packageName;
 }
