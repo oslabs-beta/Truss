@@ -4,24 +4,10 @@ import * as ts from "typescript";
 
 import { DependencyEdge, ParserIssue } from "../core/types";
 import { logger } from "../utils/logger";
-import { resolveImportToFile, isLocalSpecifier } from "../utils/pathResolver";
-
-const RESOLVABLE_EXTENSIONS = [
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mts",
-  ".cts",
-  ".mjs",
-  ".cjs",
-];
-
-function toRepoRelativePosix(repoRoot: string, absPath: string): string | null {
-  const rel = path.relative(repoRoot, absPath);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
-  return rel.split(path.sep).join("/");
-}
+import {
+  resolveImportToFile,
+  isLocalSpecifier,
+} from "../utils/pathResolver";
 
 function normalizeExternal(specifier: string): string {
   // Reduces deep imports like `pkg/sub/path` to the package name used in reports.
@@ -42,46 +28,19 @@ export function parseImportsFromFile(opts: {
   const abs = path.resolve(opts.repoRoot, opts.file);
   const edges: DependencyEdge[] = [];
   const parserIssues: ParserIssue[] = [];
-  // #region agent log
-  fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "e9e872",
-    },
-    body: JSON.stringify({
-      sessionId: "e9e872",
-      runId: "pre-fix",
-      hypothesisId: "H1",
-      location: "src/parser/importExtractor.ts:30",
-      message: "parseImportsFromFile entry",
-      data: { file: opts.file, abs },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
+  const edges: DependencyEdge[] = [];
+  const parserIssues: ParserIssue[] = [];
 
   logger.debug(`Parsing imports in file: ${opts.file}`);
 
   if (!fs.existsSync(abs)) {
-    // #region agent log
-    fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "e9e872",
-      },
-      body: JSON.stringify({
-        sessionId: "e9e872",
-        runId: "pre-fix",
-        hypothesisId: "H4",
-        location: "src/parser/importExtractor.ts:48",
-        message: "source file does not exist",
-        data: { file: opts.file, abs },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+    parserIssues.push({
+      code: "SOURCE_FILE_NOT_FOUND",
+      severity: "error",
+      message: "Source file not found",
+      fromFile: opts.file,
+    });
+    return { edges, parserIssues };
     parserIssues.push({
       code: "SOURCE_FILE_NOT_FOUND",
       severity: "error",
@@ -95,25 +54,15 @@ export function parseImportsFromFile(opts: {
   try {
     sourceText = fs.readFileSync(abs, "utf8");
   } catch (error) {
+  } catch (error) {
     logger.error(`Failed to read file: ${opts.file}`);
-    // #region agent log
-    fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "e9e872",
-      },
-      body: JSON.stringify({
-        sessionId: "e9e872",
-        runId: "pre-fix",
-        hypothesisId: "H4",
-        location: "src/parser/importExtractor.ts:72",
-        message: "source file read failed",
-        data: { file: opts.file, error: (error as Error).message },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+    parserIssues.push({
+      code: "SOURCE_FILE_READ_FAILED",
+      severity: "error",
+      message: `Failed to read source file: ${(error as Error).message || "unknown error"}`,
+      fromFile: opts.file,
+    });
+    return { edges, parserIssues };
     parserIssues.push({
       code: "SOURCE_FILE_READ_FAILED",
       severity: "error",
@@ -152,9 +101,7 @@ export function parseImportsFromFile(opts: {
     parserIssues.push({
       code: "TYPESCRIPT_SYNTAX_DIAGNOSTIC",
       severity:
-        diagnostic.category === ts.DiagnosticCategory.Error
-          ? "error"
-          : "warning",
+        diagnostic.category === ts.DiagnosticCategory.Error ? "error" : "warning",
       message: ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
       fromFile: opts.file,
       line,
