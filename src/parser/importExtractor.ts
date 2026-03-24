@@ -17,11 +17,11 @@ const RESOLVABLE_EXTENSIONS = [
   ".cjs",
 ];
 
-// function toRepoRelativePosix(repoRoot: string, absPath: string): string | null {
-//   const rel = path.relative(repoRoot, absPath);
-//   if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
-//   return rel.split(path.sep).join("/");
-// }
+function toRepoRelativePosix(repoRoot: string, absPath: string): string | null {
+  const rel = path.relative(repoRoot, absPath);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return rel.split(path.sep).join("/");
+}
 
 function normalizeExternal(specifier: string): string {
   // Reduces deep imports like `pkg/sub/path` to the package name used in reports.
