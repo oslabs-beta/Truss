@@ -4,24 +4,10 @@ import * as ts from "typescript";
 
 import { DependencyEdge, ParserIssue } from "../core/types";
 import { logger } from "../utils/logger";
-import { resolveImportToFile, isLocalSpecifier } from "../utils/pathResolver";
-
-const RESOLVABLE_EXTENSIONS = [
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mts",
-  ".cts",
-  ".mjs",
-  ".cjs",
-];
-
-function toRepoRelativePosix(repoRoot: string, absPath: string): string | null {
-  const rel = path.relative(repoRoot, absPath);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
-  return rel.split(path.sep).join("/");
-}
+import {
+  resolveImportToFile,
+  isLocalSpecifier,
+} from "../utils/pathResolver";
 
 function normalizeExternal(specifier: string): string {
   if (specifier.startsWith("node:")) return specifier;
@@ -41,10 +27,19 @@ export function parseImportsFromFile(opts: {
   const abs = path.resolve(opts.repoRoot, opts.file);
   const edges: DependencyEdge[] = [];
   const parserIssues: ParserIssue[] = [];
+  const edges: DependencyEdge[] = [];
+  const parserIssues: ParserIssue[] = [];
 
   logger.debug(`Parsing imports in file: ${opts.file}`);
 
   if (!fs.existsSync(abs)) {
+    parserIssues.push({
+      code: "SOURCE_FILE_NOT_FOUND",
+      severity: "error",
+      message: "Source file not found",
+      fromFile: opts.file,
+    });
+    return { edges, parserIssues };
     parserIssues.push({
       code: "SOURCE_FILE_NOT_FOUND",
       severity: "error",
@@ -58,7 +53,15 @@ export function parseImportsFromFile(opts: {
   try {
     sourceText = fs.readFileSync(abs, "utf8");
   } catch (error) {
+  } catch (error) {
     logger.error(`Failed to read file: ${opts.file}`);
+    parserIssues.push({
+      code: "SOURCE_FILE_READ_FAILED",
+      severity: "error",
+      message: `Failed to read source file: ${(error as Error).message || "unknown error"}`,
+      fromFile: opts.file,
+    });
+    return { edges, parserIssues };
     parserIssues.push({
       code: "SOURCE_FILE_READ_FAILED",
       severity: "error",
@@ -97,9 +100,7 @@ export function parseImportsFromFile(opts: {
     parserIssues.push({
       code: "TYPESCRIPT_SYNTAX_DIAGNOSTIC",
       severity:
-        diagnostic.category === ts.DiagnosticCategory.Error
-          ? "error"
-          : "warning",
+        diagnostic.category === ts.DiagnosticCategory.Error ? "error" : "warning",
       message: ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
       fromFile: opts.file,
       line,
