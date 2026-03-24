@@ -93,3 +93,22 @@ class Violation {
 }
 
 module.exports = { Violation }
+
+
+export class Suppression {
+  constructor({
+    ruleId,
+    file,
+    line,
+    reason = null,
+    expiresAt = null,
+    source = 'inline'
+  }) {
+    this.ruleId = ruleId
+    this.file = file
+    this.line = line
+    this.reason = reason
+    this.expiresAt = expiresAt
+    this.source = source
+  }
+}

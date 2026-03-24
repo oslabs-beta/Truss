@@ -1,19 +1,30 @@
 // SuppressionEngine.js
 
-class SuppressionEngine {
-  constructor(inlineSuppressions) {
-    this.inlineSuppressions = inlineSuppressions
-  }
+import { Violation } from "./violation";
+import { Suppression } from "./suppression";
 
-  filter(violations) {
-    return violations.filter(v => !this.isSuppressed(v))
-  }
+export function applySuppressions(
+  violations: Violation[],
+  suppressions: Suppression[]
+): void {
+  const now = new Date();
 
-  isSuppressed(violation) {
-    return this.inlineSuppressions.some(s => {
-      return s.line === violation.line
-    })
+  for (const v of violations) {
+    const match = suppressions.find(
+      s =>
+        s.ruleId === v.ruleId &&
+        s.file === v.file &&
+        s.line === v.line
+    );
+
+    if (!match) continue;
+
+    if (match.expires && match.expires < now) {
+      v.expiredSuppression = true;
+      continue;
+    }
+
+    v.suppressed = true;
+    match.used = true;
   }
 }
-
-module.exports = SuppressionEngine

@@ -1,41 +1,45 @@
 // NoCrossLayerRule.js
 
+import { Rule } from "../models/Rule";
+import { Violation } from "../models/Violation";
+import { RuleConfig, LayerMap } from "../models/Config";
 
-const Rule = require("./Rule")
-const { Violation } = require("./types")
-
-class NoCrossLayerRule extends Rule {
-  constructor(config) {
-    super(config)
-    this.from = config.from
-    this.to = config.to
+function findLayer(filePath: string, layers: LayerMap): string | null {
+  for (const [name, dir] of Object.entries(layers)) {
+    if (filePath.includes(dir)) return name;
   }
-
-  evaluate(context) {
-    const { filePath, imports, getLayerFromPath } = context
-    const violations = []
-
-    const fromLayer = getLayerFromPath(filePath)
-
-    for (const imp of imports) {
-      const toLayer = getLayerFromPath(imp.source)
-
-      if (fromLayer === this.from && toLayer === this.to) {
-        violations.push(
-          new Violation({
-            ruleId: this.id,
-            message: `Layer "${this.from}" cannot import "${this.to}"`,
-            file: filePath,
-            line: imp.line,
-            fromLayer,
-            toLayer
-          })
-        )
-      }
-    }
-
-    return violations
-  }
+  return null;
 }
 
-module.exports = NoCrossLayerRule;
+export function createNoCrossLayerRule(
+  ruleConfig: RuleConfig,
+  layers: LayerMap
+): Rule {
+  return new Rule(ruleConfig.id, (filePath, source) => {
+    const violations: Violation[] = [];
+    const fromLayer = findLayer(filePath, layers);
+
+    source.split("\n").forEach((line, i) => {
+      const match = line.match(/import .* from ['"](.*)['"]/);
+      if (!match) return;
+
+      const toLayer = findLayer(match[1], layers);
+
+      if (
+        fromLayer === ruleConfig.from &&
+        toLayer === ruleConfig.to
+      ) {
+        violations.push(
+          new Violation(
+            ruleConfig.id,
+            filePath,
+            i + 1,
+            `Layer ${ruleConfig.from} cannot import ${ruleConfig.to}`
+          )
+        );
+      }
+    });
+
+    return violations;
+  });
+}

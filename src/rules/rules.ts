@@ -1,13 +1,13 @@
 // Rule.js
 
-class Rule {
-  constructor(config) {
-    this.id = config.id
-  }
+export type RuleCheckFn = (
+  filePath: string,
+  source: string
+) => Violation[];
 
-  evaluate(context) {
-    throw new Error("evaluate() must be implemented")
-  }
+export class Rule {
+  constructor(
+    public id: string,
+    public check: RuleCheckFn
+  ) {}
 }
-
-module.exports = Rule;

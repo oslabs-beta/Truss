@@ -1,21 +1,31 @@
-// InlineSuppressionParser.js
 
-function parseInlineSuppressions(fileContent) {
-  const lines = fileContent.split("\n")
-  const suppressions = []
+// Parsing inline suppressions with expiration
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
+import { Suppression } from "../rules/suppression";
 
-    if (line.startsWith("// truss-ignore")) {
-      // Suppress next line
-      suppressions.push({
-        line: i + 2 // next line (1-based)
-      })
-    }
-  }
+export function parseInlineSuppressions(
+  filePath: string,
+  source: string
+): Suppression[] {
+  const suppressions: Suppression[] = [];
+  const lines = source.split("\n");
 
-  return suppressions
+  lines.forEach((line, i) => {
+    const match = line.match(
+      /lint-disable\s+(\S+)(?:\s+expires=(\S+))?/
+    );
+
+    if (!match) return;
+
+    suppressions.push(
+      new Suppression(
+        match[1],
+        filePath,
+        i + 1,
+        match[2] ? new Date(match[2]) : null
+      )
+    );
+  });
+
+  return suppressions;
 }
-
-module.exports = { parseInlineSuppressions }
