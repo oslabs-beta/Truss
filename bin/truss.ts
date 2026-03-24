@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import * as path from "node:path";
 import { Command } from "commander";
-import { loadTrussConfig, ConfigError } from "../src/config/configLoader";
+import { loadTrussConfig } from "../src/config/configLoader";
+import { ConfigError } from "../src/utils/errors";
 import { runCheck } from "../src/core/engine";
 import {
   renderHumanReport,

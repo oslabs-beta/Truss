@@ -13,68 +13,70 @@ import {
   TrussReport,
 } from "./types";
 import { ConfigError } from "../utils/errors";
+import { logger } from "../utils/logger";
 
-/**
- * runCheck()
- * Purpose: Main orchestration function for "truss check".
- * It runs the full pipeline:
- *   1) Load config
- *   2) Scan repo for source files
- *   3) Build dependency edges (imports)
- *   4) Evaluate rules (create violations)
- *   5) Apply suppressions (split violations)
- *   6) Build final report + choose exit code
- *
- * Input:
- *  - opts: CheckOptions object (repoRoot, configPath, format, showSuppressed)
- * Output:
- *  - Promise that resolves to:
- *      { exitCode, report } on completed analysis
- *      { exitCode, error } on config/internal failure
- */
 export async function runCheck(
   opts: CheckOptions
 ): Promise<CheckRunResult> {
   try {
-    // Make repoRoot an absolute path (safe and consistent).
     const repoRoot = path.resolve(opts.repoRoot);
 
-    // Load and validate Truss config from file
+    logger.debug(`Starting Truss check in ${repoRoot}`);
+
+    // Load config
+    logger.debug("Loading config...");
     const config = loadTrussConfig(
       path.resolve(repoRoot, opts.configPath),
-      opts.configPath,
+      opts.configPath
     );
 
-    // Find all source files in the repo (ts/tsx/js/jsx), respecting ignore rules.
+    // Discover files
+    logger.debug("Scanning source files...");
     const files = discoverSourceFiles({
       repoRoot,
       extraIgnores: config.ignore,
     });
+    logger.debug(`Found ${files.length} source files`);
 
-    // If we found nothing, config/paths are probably wrong.
     if (files.length === 0) {
       throw new ConfigError(
         "No source files found (.ts/.tsx/.js/.jsx). Check repoRoot/ignore settings."
       );
     }
 
-    // Build a dependency graph and collect parser-level issues per file.
+    // Build dependency graph (NEW API)
+    logger.debug("Building dependency graph...");
     const graph = buildDependencyEdges({ repoRoot, files });
+
     const edges = graph.edges;
     const parserIssues = graph.parserIssues;
 
-    // Check edges against architecture rules and collect all violations.
+    logger.debug(`Built ${edges.length} dependency edges`);
+    logger.debug(`Collected ${parserIssues.length} parser issues`);
+
+    // Evaluate rules
+    logger.debug("Evaluating architecture rules...");
     const { violations } = evaluateRules({ config, edges });
+    logger.debug(
+      `Found ${violations.length} total violations before suppressions`
+    );
 
-    // Split violations into:
-    // - unsuppressed (real failures)
-    // - suppressed (allowed with reason)
-    const { unsuppressed, suppressed } = applySuppressions({ config, violations });
+    // Apply suppressions
+    logger.debug("Applying suppressions...");
+    const { unsuppressed, suppressed } = applySuppressions({
+      config,
+      violations,
+    });
 
+    logger.debug(
+      `Unsuppressed: ${unsuppressed.length}, suppressed: ${suppressed.length}`
+    );
+
+    // Build diagnostics
     const diagnostics = buildDiagnostics(parserIssues);
     const categories = countDiagnosticCategories(diagnostics);
 
-    // Create final report object for rendering (human or JSON).
+    // Final report
     const report: TrussReport = {
       checkedFiles: files.length,
       edges: edges.length,
@@ -94,18 +96,21 @@ export async function runCheck(
       },
     };
 
-    // Exit code depends only on unsuppressed violations.
     const exitCode =
-      report.summary.unsuppressedCount > 0 ? ExitCode.VIOLATIONS : ExitCode.OK;
+      report.summary.unsuppressedCount > 0
+        ? ExitCode.VIOLATIONS
+        : ExitCode.OK;
+
+    logger.debug(`Check completed with exit code ${exitCode}`);
 
     return { exitCode, report, analysis: report.analysis };
   } catch (e) {
-    // If config is invalid or missing, return config error code.
     if (e instanceof ConfigError) {
+      logger.error(`Config error: ${e.message}`);
       return { exitCode: ExitCode.CONFIG_ERROR, error: e.message };
     }
 
-    // Any other error is treated as internal error.
+    logger.error(`Internal error: ${(e as Error).message}`);
     return {
       exitCode: ExitCode.INTERNAL_ERROR,
       error: `Internal error: ${(e as Error).message}`,
@@ -155,29 +160,5 @@ function runEngine(filePath, fileContent) {
     )
   }
 
-  // Step 5: Apply suppressions
-  const suppressionEngine = new SuppressionEngine(inlineSuppressions)
-  const filteredViolations = suppressionEngine.filter(violations)
-
-  return filteredViolations
+  return counts;
 }
-
-function parseImports(fileContent) {
-  const lines = fileContent.split("\n")
-  const imports = []
-
-  lines.forEach((line, index) => {
-    const match = line.match(/import .* from ["'](.+)["']/)
-
-    if (match) {
-      imports.push({
-        source: match[1],
-        line: index + 1
-      })
-    }
-  })
-
-  return imports
-}
-
-module.exports = { runEngine }

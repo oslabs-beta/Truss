@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { FileScanError } from "../utils/errors";
+import { logger } from "../utils/logger";
 
 const DEFAULT_IGNORES = new Set([
   "node_modules",
@@ -33,10 +34,13 @@ export function discoverSourceFiles(opts: {
 
   // Ensure repoRoot is absolute for consistent path handling
   const repoRoot = path.resolve(opts.repoRoot);
+  logger.debug(`Scanning source files under: ${repoRoot}`);
 
   // Build ignore set (default + user-defined)
   const ignore = new Set(DEFAULT_IGNORES);
   for (const i of opts.extraIgnores ?? []) ignore.add(i);
+
+  logger.debug(`Using ignore rules: ${Array.from(ignore).join(", ")}`);
 
   const results: string[] = [];
 
@@ -49,6 +53,8 @@ export function discoverSourceFiles(opts: {
     try {
       entries = fs.readdirSync(dirAbs, { withFileTypes: true })
     } catch (error) {
+
+      logger.error(`Failed to read directory: ${dirAbs}`);
       throw new FileScanError(`Failed to read directory: ${dirAbs}`)
     }
 
@@ -73,5 +79,6 @@ export function discoverSourceFiles(opts: {
 
   walk(repoRoot);
   results.sort();
+  logger.debug(`Discovered ${results.length} source files`);
   return results;
 }
