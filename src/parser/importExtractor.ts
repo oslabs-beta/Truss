@@ -10,14 +10,6 @@ import {
   isLocalSpecifier,
 } from "../utils/pathResolver";
 
-const RESOLVABLE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"];
-
-function toRepoRelativePosix(repoRoot: string, absPath: string): string | null {
-  const rel = path.relative(repoRoot, absPath);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
-  return rel.split(path.sep).join("/");
-}
-
 function normalizeExternal(specifier: string): string {
   if (specifier.startsWith("node:")) return specifier;
 
@@ -124,6 +116,15 @@ export function parseImportsFromFile(opts: {
       ts.isCallExpression(node) &&
       ts.isIdentifier(node.expression) &&
       node.expression.text === "require" &&
+      node.arguments.length === 1 &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      pushEdge(node.arguments[0].text, node);
+    }
+
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
       node.arguments.length === 1 &&
       ts.isStringLiteral(node.arguments[0])
     ) {

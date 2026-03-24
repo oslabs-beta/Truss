@@ -266,7 +266,7 @@ JSON mode prints exactly one JSON object to stdout.
 
 ```json
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "kind": "error",
   "exitCode": 2,
   "error": "Config file not found: truss.yml. Add a truss.yml at the repo root or pass --config <path>."
@@ -277,16 +277,28 @@ JSON mode prints exactly one JSON object to stdout.
 
 ```json
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "kind": "report",
   "exitCode": 0,
   "checkedFiles": 2,
   "edges": 1,
   "unsuppressed": [],
   "suppressed": [],
+  "parserIssues": [],
+  "analysis": {
+    "diagnostics": [],
+    "categories": {
+      "parser": 0,
+      "graph": 0,
+      "validation": 0,
+      "suppression": 0
+    }
+  },
   "summary": {
     "unsuppressedCount": 0,
     "suppressedCount": 0,
+    "parserIssueCount": 0,
+    "diagnosticCount": 0,
     "totalCount": 0
   }
 }
@@ -301,6 +313,8 @@ JSON mode prints exactly one JSON object to stdout.
 - `edges`: number of resolved internal dependency edges
 - `unsuppressed`: violations that fail the check
 - `suppressed`: violations allowed by config suppressions
+- `parserIssues`: parser-level warnings collected while analysis continued
+- `analysis`: structured diagnostics and category counts
 - `summary`: aggregate counts
 - `error`: top-level error message for non-report runs
 

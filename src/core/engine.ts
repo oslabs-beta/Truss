@@ -103,7 +103,7 @@ export async function runCheck(
 
     logger.debug(`Check completed with exit code ${exitCode}`);
 
-    return { exitCode, report, analysis: report.analysis };
+    return { exitCode, report };
   } catch (e) {
     if (e instanceof ConfigError) {
       logger.error(`Config error: ${e.message}`);

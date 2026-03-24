@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("node:path");
 const commander_1 = require("commander");
 const configLoader_1 = require("../src/config/configLoader");
+const errors_1 = require("../src/utils/errors");
 const engine_1 = require("../src/core/engine");
 const reporter_1 = require("../src/core/reporter");
 const types_1 = require("../src/core/types");
@@ -41,7 +42,7 @@ program
         (0, configLoader_1.loadTrussConfig)(path.resolve(repoRoot, configPath), configPath);
     }
     catch (e) {
-        const msg = e instanceof configLoader_1.ConfigError
+        const msg = e instanceof errors_1.ConfigError
             ? e.message
             : `Failed to load config: ${e.message}`;
         if (format === "json") {

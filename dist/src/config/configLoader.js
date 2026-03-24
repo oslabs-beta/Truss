@@ -5,12 +5,6 @@ const fs = require("node:fs");
 const path = require("node:path");
 const yaml = require("yaml");
 const errors_1 = require("../utils/errors");
-// export class ConfigError extends Error {
-//   constructor(message: string) {
-//     super(message);
-//     this.name = "ConfigError";
-//   }
-// }
 function labelPath(displayPath, fallbackPath) {
     return displayPath ?? fallbackPath ?? "truss.yml";
 }
@@ -55,7 +49,9 @@ function loadTrussConfig(configPath, displayPath) {
         throw new errors_1.ConfigError(`Invalid config in ${shownPath}: "layers" must define at least one layer.`);
     }
     for (const [layerName, patterns] of Object.entries(cfg.layers)) {
-        if (!Array.isArray(patterns) || patterns.length === 0 || patterns.some((p) => typeof p !== "string")) {
+        if (!Array.isArray(patterns) ||
+            patterns.length === 0 ||
+            patterns.some((p) => typeof p !== "string")) {
             throw new errors_1.ConfigError(`Invalid layer "${layerName}" in ${shownPath}. Expected a non-empty list of path patterns, for example: ["src/${layerName}"].`);
         }
     }
@@ -76,7 +72,9 @@ function loadTrussConfig(configPath, displayPath) {
         if (!knownLayers.has(r.from)) {
             throw new errors_1.ConfigError(`Rule "${r.name}" in ${shownPath} references unknown layer in "from": "${r.from}".`);
         }
-        if (!Array.isArray(r.disallow) || r.disallow.length === 0 || r.disallow.some((x) => typeof x !== "string")) {
+        if (!Array.isArray(r.disallow) ||
+            r.disallow.length === 0 ||
+            r.disallow.some((x) => typeof x !== "string")) {
             throw new errors_1.ConfigError(`Rule "${r.name}" in ${shownPath} must define "disallow" as a non-empty string[].`);
         }
         for (const target of r.disallow) {

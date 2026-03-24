@@ -4,6 +4,7 @@ exports.discoverSourceFiles = discoverSourceFiles;
 const fs = require("node:fs");
 const path = require("node:path");
 const errors_1 = require("../utils/errors");
+const logger_1 = require("../utils/logger");
 const DEFAULT_IGNORES = new Set([
     "node_modules",
     ".git",
@@ -28,10 +29,12 @@ const EXT_OK = new Set([".ts", ".tsx", ".js", ".jsx"]);
 function discoverSourceFiles(opts) {
     // Ensure repoRoot is absolute for consistent path handling
     const repoRoot = path.resolve(opts.repoRoot);
+    logger_1.logger.debug(`Scanning source files under: ${repoRoot}`);
     // Build ignore set (default + user-defined)
     const ignore = new Set(DEFAULT_IGNORES);
     for (const i of opts.extraIgnores ?? [])
         ignore.add(i);
+    logger_1.logger.debug(`Using ignore rules: ${Array.from(ignore).join(", ")}`);
     const results = [];
     //Recursively walks a directory and collects valid source files
     function walk(dirAbs) {
@@ -41,6 +44,7 @@ function discoverSourceFiles(opts) {
             entries = fs.readdirSync(dirAbs, { withFileTypes: true });
         }
         catch (error) {
+            logger_1.logger.error(`Failed to read directory: ${dirAbs}`);
             throw new errors_1.FileScanError(`Failed to read directory: ${dirAbs}`);
         }
         for (const ent of entries) {
@@ -63,5 +67,6 @@ function discoverSourceFiles(opts) {
     }
     walk(repoRoot);
     results.sort();
+    logger_1.logger.debug(`Discovered ${results.length} source files`);
     return results;
 }

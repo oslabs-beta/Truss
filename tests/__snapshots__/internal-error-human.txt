@@ -1,2 +1,2 @@
 Truss: Internal error
-Internal error: ENOTDIR: not a directory, scandir '/Users/ant/Desktop/CODESMITH/Truss/Truss/tests/fixtures/ok-repo/truss.yml'
+Internal error: Failed to read directory: /Users/ant/Desktop/CODESMITH/Truss/Truss/tests/fixtures/ok-repo/truss.yml

@@ -4,13 +4,6 @@ import * as yaml from "yaml";
 import { TrussConfig } from "./configSchema";
 import { ConfigError } from "../utils/errors";
 
-// export class ConfigError extends Error {
-//   constructor(message: string) {
-//     super(message);
-//     this.name = "ConfigError";
-//   }
-// }
-
 function labelPath(displayPath?: string, fallbackPath?: string): string {
   return displayPath ?? fallbackPath ?? "truss.yml";
 }
@@ -76,7 +69,11 @@ export function loadTrussConfig(
   }
 
   for (const [layerName, patterns] of Object.entries(cfg.layers)) {
-  if (!Array.isArray(patterns) || patterns.length === 0 || patterns.some((p) => typeof p !== "string")) {
+    if (
+      !Array.isArray(patterns) ||
+      patterns.length === 0 ||
+      patterns.some((p) => typeof p !== "string")
+    ) {
       throw new ConfigError(
         `Invalid layer "${layerName}" in ${shownPath}. Expected a non-empty list of path patterns, for example: ["src/${layerName}"].`,
       );
@@ -106,7 +103,11 @@ export function loadTrussConfig(
         `Rule "${r.name}" in ${shownPath} references unknown layer in "from": "${r.from}".`,
       );
     }
-    if (!Array.isArray(r.disallow) || r.disallow.length === 0 || r.disallow.some((x) => typeof x !== "string")) {
+    if (
+      !Array.isArray(r.disallow) ||
+      r.disallow.length === 0 ||
+      r.disallow.some((x) => typeof x !== "string")
+    ) {
       throw new ConfigError(
         `Rule "${r.name}" in ${shownPath} must define "disallow" as a non-empty string[].`,
       );

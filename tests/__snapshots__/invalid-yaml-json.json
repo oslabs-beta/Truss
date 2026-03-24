@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "kind": "error",
   "exitCode": 2,
   "error": "Invalid YAML in truss.yml at line 5, column 1. Fix the syntax and try again."

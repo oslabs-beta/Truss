@@ -1,3 +1,17 @@
+import { TrussConfig } from "../config/configSchema";
+import { DependencyEdge, SuppressedViolation, Violation } from "./types";
+
+function matchLayer(file: string, layers: TrussConfig["layers"]): string | null {
+  for (const [layerName, patterns] of Object.entries(layers)) {
+    for (const pattern of patterns) {
+      const normalized = pattern.replace(/\*\*$/, "");
+      if (file.startsWith(normalized)) return layerName;
+    }
+  }
+
+  return null;
+}
+
 export function evaluateRules(opts: {
   config: TrussConfig;
   edges: DependencyEdge[];
@@ -43,4 +57,30 @@ export function evaluateRules(opts: {
   }
 
   return { violations, fileToLayer };
+}
+
+export function applySuppressions(opts: {
+  config: TrussConfig;
+  violations: Violation[];
+}): { unsuppressed: Violation[]; suppressed: SuppressedViolation[] } {
+  const suppressions = opts.config.suppressions ?? [];
+  const suppressed: SuppressedViolation[] = [];
+  const unsuppressed: Violation[] = [];
+
+  for (const v of opts.violations) {
+    const s = suppressions.find(
+      (x) => x.file === v.edge.fromFile && x.rule === v.ruleName,
+    );
+
+    if (s) suppressed.push({ ...v, suppressionReason: s.reason });
+    else unsuppressed.push(v);
+  }
+
+  const byLocation = (a: Violation, b: Violation) =>
+    a.edge.fromFile.localeCompare(b.edge.fromFile) || a.edge.line - b.edge.line;
+
+  suppressed.sort(byLocation);
+  unsuppressed.sort(byLocation);
+
+  return { unsuppressed, suppressed };
 }

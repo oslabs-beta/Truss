@@ -131,7 +131,6 @@ export type CheckRunResult =
   | {
       exitCode: typeof ExitCode.OK | typeof ExitCode.VIOLATIONS;
       report: TrussReport;
-      analysis: TrussReport["analysis"];
     }
   | {
       exitCode: typeof ExitCode.CONFIG_ERROR | typeof ExitCode.INTERNAL_ERROR;

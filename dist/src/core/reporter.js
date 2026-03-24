@@ -61,8 +61,12 @@ function renderHumanReport(report, opts) {
         lines.push("Summary:");
         lines.push(`Unsuppressed: ${report.summary.unsuppressedCount}`);
         lines.push(`Suppressed: ${report.summary.suppressedCount}`);
-        lines.push(`Parser issues: ${report.summary.parserIssueCount}`);
-        lines.push(`Diagnostics: ${report.summary.diagnosticCount}`);
+        if (report.summary.parserIssueCount > 0) {
+            lines.push(`Parser issues: ${report.summary.parserIssueCount}`);
+        }
+        if (report.summary.diagnosticCount > 0) {
+            lines.push(`Diagnostics: ${report.summary.diagnosticCount}`);
+        }
         lines.push(`Total: ${report.summary.totalCount}`);
         return lines.join("\n");
     }
