@@ -89,6 +89,7 @@ export async function runCheck(
       unsuppressed,
       suppressed,
       parserIssues,
+      diagnostics,
       analysis: {
         diagnostics,
         categories,
@@ -109,7 +110,7 @@ export async function runCheck(
 
     logger.debug(`Check completed with exit code ${exitCode}`);
 
-    return { exitCode, report };
+    return { exitCode, report, diagnostics };
   } catch (e) {
     // #region agent log
     fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "8d2d4f" }, body: JSON.stringify({ sessionId: "8d2d4f", runId: "pre-fix", hypothesisId: "H5", location: "src/core/engine.ts:runCheck:catch", message: "runCheck caught error", data: { errorName: (e as Error).name, errorMessage: (e as Error).message, hasStack: Boolean((e as Error).stack) }, timestamp: Date.now() }) }).catch(() => {});
@@ -119,10 +120,11 @@ export async function runCheck(
       return { exitCode: ExitCode.CONFIG_ERROR, error: e.message };
     }
 
-    logger.error(`Internal error: ${(e as Error).message}`);
+    const message = e instanceof Error ? e.message : String(e);
+    logger.error(`Internal error: ${message}`);
     return {
       exitCode: ExitCode.INTERNAL_ERROR,
-      error: `Internal error: ${(e as Error).message}`,
+      error: `Internal error: ${message}`,
     };
   }
 }

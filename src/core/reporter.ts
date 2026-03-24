@@ -1,4 +1,5 @@
 import {
+  AnalysisDiagnostic,
   JsonErrorV1,
   JsonReportV1,
   REPORT_SCHEMA_VERSION,
@@ -50,12 +51,7 @@ export function renderHumanReport(
 
     if (parserIssueCount > 0) {
       lines.push("");
-      lines.push(`Parser issues: ${parserIssueCount} (analysis continued)`);
-      lines.push("Diagnostics by category:");
-      lines.push(`- parser: ${report.analysis.categories.parser}`);
-      lines.push(`- graph: ${report.analysis.categories.graph}`);
-      lines.push(`- validation: ${report.analysis.categories.validation}`);
-      lines.push(`- suppression: ${report.analysis.categories.suppression}`);
+      lines.push(...renderDiagnosticsSection(report.diagnostics, parserIssueCount));
     }
 
     lines.push("Summary:");
@@ -93,10 +89,35 @@ export function renderHumanReport(
   }
 
   if (parserIssueCount > 0) {
-    lines.push(`Parser issues: ${parserIssueCount} (analysis continued)`);
+    lines.push(...renderDiagnosticsSection(report.diagnostics, parserIssueCount));
   }
 
   return lines.join("\n");
+}
+
+function renderDiagnosticsSection(
+  diagnostics: AnalysisDiagnostic[],
+  parserIssueCount: number
+): string[] {
+  const lines: string[] = [];
+  lines.push(`Parser issues: ${parserIssueCount} (analysis continued)`);
+
+  diagnostics.forEach((diagnostic, index) => {
+    const location =
+      diagnostic.file && diagnostic.line !== undefined
+        ? `${diagnostic.file}:${diagnostic.line}`
+        : diagnostic.file ?? "unknown location";
+    lines.push(
+      `[${diagnostic.severity}] ${diagnostic.code} (${diagnostic.category}) at ${location}`
+    );
+    lines.push(diagnostic.message);
+    if (diagnostic.importText) {
+      lines.push(`Import: ${diagnostic.importText}`);
+    }
+    if (index < diagnostics.length - 1) lines.push("");
+  });
+
+  return lines;
 }
 
 function compareViolations(a: Violation, b: Violation): number {
@@ -123,6 +144,7 @@ export function buildJsonReport(report: TrussReport, exitCode: number): JsonRepo
     unsuppressed,
     suppressed,
     parserIssues: report.parserIssues,
+    diagnostics: report.diagnostics,
     analysis: report.analysis,
     summary: {
       unsuppressedCount: report.summary.unsuppressedCount,

@@ -114,6 +114,7 @@ test("json includes parser diagnostics and category counts", () => {
 
   const parsed = JSON.parse(result.stdout) as {
     parserIssues: Array<{ code: string }>;
+    diagnostics: Array<{ category: string }>;
     analysis: { diagnostics: Array<{ category: string }>; categories: Record<string, number> };
     summary: { parserIssueCount: number; diagnosticCount: number };
   };
@@ -122,6 +123,8 @@ test("json includes parser diagnostics and category counts", () => {
   assert.strictEqual(parsed.parserIssues[0]?.code, "UNRESOLVABLE_RELATIVE_IMPORT");
   assert.strictEqual(parsed.analysis.diagnostics.length, 1);
   assert.strictEqual(parsed.analysis.diagnostics[0]?.category, "parser");
+  assert.strictEqual(parsed.diagnostics.length, 1);
+  assert.strictEqual(parsed.diagnostics[0]?.category, "parser");
   assert.strictEqual(parsed.analysis.categories.parser, 1);
   assert.strictEqual(parsed.summary.parserIssueCount, 1);
   assert.strictEqual(parsed.summary.diagnosticCount, 1);
