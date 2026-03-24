@@ -1,19 +1,29 @@
 // NoCrossLayerRule.js
 
 
-const Rule = require("./Rule")
-const { Violation } = require("./types")
+import Rule, { EvaluationContext } from "./rules"
+import { Violation } from "../core/types"
 
-class NoCrossLayerRule extends Rule {
-  constructor(config) {
+interface NoCrossLayerConfig {
+  id: string
+  type: "no-cross-layer"
+  from: string
+  to: string
+}
+
+export default class NoCrossLayerRule extends Rule {
+  from: string
+  to: string
+
+  constructor(config: NoCrossLayerConfig) {
     super(config)
     this.from = config.from
     this.to = config.to
   }
 
-  evaluate(context) {
+  evaluate(context: EvaluationContext): Violation[] {
     const { filePath, imports, getLayerFromPath } = context
-    const violations = []
+    const violations: Violation[] = []
 
     const fromLayer = getLayerFromPath(filePath)
 
@@ -37,5 +47,3 @@ class NoCrossLayerRule extends Rule {
     return violations
   }
 }
-
-module.exports = NoCrossLayerRule;
