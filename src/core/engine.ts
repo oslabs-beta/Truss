@@ -2,7 +2,7 @@ import * as path from "node:path";
 import { loadTrussConfig } from "../config/configLoader";
 import { discoverSourceFiles } from "../parser/fileScanner";
 import { buildDependencyEdges } from "../graph/dependencyGraph";
-import {evaluateRules, applySuppressions } from "./validator";
+import {evaluateRules } from "./validator";
 import {
   AnalysisCategoryCounts,
   AnalysisDiagnostic,
