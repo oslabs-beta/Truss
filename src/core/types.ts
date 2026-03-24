@@ -145,18 +145,3 @@ export type CheckOptions = {
   format: "human" | "json";
   showSuppressed: boolean;
 };
-
-// shuangfei below rules
-
-class Violation {
-  constructor({ ruleId, message, file, line, fromLayer, toLayer }) {
-    this.ruleId = ruleId
-    this.message = message
-    this.file = file
-    this.line = line
-    this.fromLayer = fromLayer
-    this.toLayer = toLayer
-  }
-}
-
-module.exports = { Violation }
