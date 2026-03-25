@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { FileScanError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { isIgnoredPath } from "../utils/pathResolver";
 
 const DEFAULT_IGNORES = new Set([
   "node_modules",
@@ -45,23 +46,23 @@ export function discoverSourceFiles(opts: {
       throw new FileScanError(`Failed to read directory: ${dirAbs}`);
     }
 
-    for (const ent of entries) {
-      const abs = path.join(dirAbs, ent.name);
-      const rel = path.relative(repoRoot, abs);
+   for (const ent of entries) {
+  const abs = path.join(dirAbs, ent.name);
+  const rel = path.relative(repoRoot, abs);
 
-      // Ignored directories are skipped entirely so they do not add traversal cost.
-      if (ent.isDirectory()) {
-        if (ignore.has(ent.name)) continue;
-        walk(abs);
-        continue;
-      }
+  // Skip ignored files and directories before doing any deeper work.
+  if (isIgnoredPath(rel, ignore)) continue;
 
-      if (!ent.isFile()) continue;
-      if (!EXT_OK.has(path.extname(ent.name))) continue;
+  if (ent.isDirectory()) {
+    walk(abs);
+    continue;
+  }
 
-      // Normalize separators for cross-platform deterministic output.
-      results.push(rel.split(path.sep).join("/"));
-    }
+  if (!ent.isFile()) continue;
+  if (!EXT_OK.has(path.extname(ent.name))) continue;
+
+  results.push(rel.split(path.sep).join("/"));
+}
   }
 
   walk(repoRoot);
