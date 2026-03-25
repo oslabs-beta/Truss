@@ -17,7 +17,8 @@ export function buildDependencyEdges(opts: {
 
   logger.debug(`Building dependency edges for ${opts.files.length} files`);
 
-  for (const file of opts.files) {
+  const rootFiles = [...opts.files].sort((a, b) => a.localeCompare(b));
+  for (const file of rootFiles) {
     traverseInternalDependencies(file, {
       visiting: new Set<string>(),
       visited: new Set<string>(),
@@ -73,16 +74,22 @@ export function buildDependencyEdges(opts: {
       parserIssues.push(...parsed.parserIssues);
     }
 
-    for (const edge of parsed.edges) {
+    const sortedEdges = [...parsed.edges].sort(compareEdges);
+
+    for (const edge of sortedEdges) {
       const key = edgeDedupKey(edge);
       if (emittedEdgeKeys.has(key)) continue;
       emittedEdgeKeys.add(key);
       edges.push(edge);
     }
 
-    for (const edge of parsed.edges) {
-      if (edge.importKind !== "internal") continue;
-      traverseInternalDependencies(edge.toFile, state);
+    const sortedInternalTargets = sortedEdges
+      .filter((edge) => edge.importKind === "internal")
+      .map((edge) => edge.toFile)
+      .sort((a, b) => a.localeCompare(b));
+
+    for (const toFile of sortedInternalTargets) {
+      traverseInternalDependencies(toFile, state);
     }
 
     state.visiting.delete(file);
@@ -90,12 +97,7 @@ export function buildDependencyEdges(opts: {
   }
 
   // Sorting by source location and target keeps reports and snapshots stable across runs.
-  edges.sort(
-    (a, b) =>
-      a.fromFile.localeCompare(b.fromFile) ||
-      a.line - b.line ||
-      targetKey(a).localeCompare(targetKey(b)),
-  );
+  edges.sort(compareEdges);
 
   logger.debug(`Final dependency edge count: ${edges.length}`);
   logger.debug(`Total parser issues: ${parserIssues.length}`);
@@ -118,4 +120,14 @@ function edgeDedupKey(edge: DependencyEdge): string {
     edge.line.toString(),
     edge.importText,
   ].join("|");
+}
+
+function compareEdges(a: DependencyEdge, b: DependencyEdge): number {
+  return (
+    a.fromFile.localeCompare(b.fromFile) ||
+    a.line - b.line ||
+    targetKey(a).localeCompare(targetKey(b)) ||
+    a.importKind.localeCompare(b.importKind) ||
+    a.importText.localeCompare(b.importText)
+  );
 }
