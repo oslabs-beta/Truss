@@ -56,7 +56,8 @@ export type ParserIssue = {
     | "UNRESOLVABLE_RELATIVE_IMPORT"
     | "SOURCE_FILE_NOT_FOUND"
     | "SOURCE_FILE_READ_FAILED"
-    | "TYPESCRIPT_SYNTAX_DIAGNOSTIC";
+    | "TYPESCRIPT_SYNTAX_DIAGNOSTIC"
+    | "CIRCULAR_DEPENDENCY";
   severity: AnalysisDiagnosticSeverity;
   message: string;
   fromFile: string;

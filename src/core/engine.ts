@@ -1,7 +1,8 @@
 import * as path from "node:path";
 import { loadTrussConfig } from "../config/configLoader";
 import { discoverSourceFiles } from "../parser/fileScanner";
-import { buildDependencyEdges } from "../graph/dependencyGraph";
+import { buildDependencyEdges, buildGraph, resolveTransitiveEdges } from "../graph/dependencyGraph";
+import { detectCycles } from "../graph/cycleDetector";
 import { applySuppressions, evaluateRules } from "./validator";
 import {
   AnalysisCategoryCounts,
@@ -20,9 +21,6 @@ export async function runCheck(
 ): Promise<CheckRunResult> {
   try {
     const repoRoot = path.resolve(opts.repoRoot);
-    // #region agent log
-    fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "8d2d4f" }, body: JSON.stringify({ sessionId: "8d2d4f", runId: "pre-fix", hypothesisId: "H3", location: "src/core/engine.ts:runCheck:entry", message: "runCheck entry with import bindings", data: { repoRoot, evaluateRulesType: typeof evaluateRules, applySuppressionsType: typeof applySuppressions }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
 
     logger.debug(`Starting Truss check in ${repoRoot}`);
 
@@ -49,19 +47,33 @@ export async function runCheck(
 
     // Parses every discovered file and combines the dependency edges and parser warnings.
     logger.debug("Building dependency graph...");
-    const graph = buildDependencyEdges({ repoRoot, files });
+    const { edges: directEdges, parserIssues } = buildDependencyEdges({ repoRoot, files });
 
-    const edges = graph.edges;
-    const parserIssues = graph.parserIssues;
-
-    logger.debug(`Built ${edges.length} dependency edges`);
+    logger.debug(`Built ${directEdges.length} direct dependency edges`);
     logger.debug(`Collected ${parserIssues.length} parser issues`);
+
+    // Build adjacency graph from direct edges, detect cycles, then expand to transitive deps.
+    logger.debug("Resolving transitive dependencies...");
+    const graphNodes = buildGraph(directEdges);
+    const cycles = detectCycles(graphNodes);
+
+    // Emit each detected cycle as a diagnostic so callers can surface it.
+    for (const cycle of cycles) {
+      parserIssues.push({
+        code: "CIRCULAR_DEPENDENCY",
+        severity: "warning",
+        message: `Circular dependency: ${cycle.join(" → ")}`,
+        fromFile: cycle[0],
+      });
+    }
+
+    logger.debug(`Detected ${cycles.length} cycles`);
+
+    const edges = resolveTransitiveEdges(graphNodes, directEdges);
+    logger.debug(`Expanded to ${edges.length} edges (direct + transitive)`);
 
     // Converts dependency edges into violations by comparing layer relationships to the rules.
     logger.debug("Evaluating architecture rules...");
-    // #region agent log
-    fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "8d2d4f" }, body: JSON.stringify({ sessionId: "8d2d4f", runId: "pre-fix", hypothesisId: "H4", location: "src/core/engine.ts:runCheck:beforeEvaluateRules", message: "about to call evaluateRules", data: { edgeCount: edges.length, parserIssueCount: parserIssues.length }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     const { violations } = evaluateRules({ config, edges });
     logger.debug(
       `Found ${violations.length} total violations before suppressions`
@@ -85,7 +97,7 @@ export async function runCheck(
     // Builds the final report shape consumed by both human and JSON formatters.
     const report: TrussReport = {
       checkedFiles: files.length,
-      edges: edges.length,
+      edges: directEdges.length,
       unsuppressed,
       suppressed,
       parserIssues,
@@ -111,9 +123,6 @@ export async function runCheck(
 
     return { exitCode, report };
   } catch (e) {
-    // #region agent log
-    fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "8d2d4f" }, body: JSON.stringify({ sessionId: "8d2d4f", runId: "pre-fix", hypothesisId: "H5", location: "src/core/engine.ts:runCheck:catch", message: "runCheck caught error", data: { errorName: (e as Error).name, errorMessage: (e as Error).message, hasStack: Boolean((e as Error).stack) }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     if (e instanceof ConfigError) {
       logger.error(`Config error: ${e.message}`);
       return { exitCode: ExitCode.CONFIG_ERROR, error: e.message };
