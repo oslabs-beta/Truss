@@ -16,6 +16,38 @@ const RESOLVABLE_EXTENSIONS = [
   ".cjs",
 ];
 
+export function isIgnoredPath(rel: string, ignore: Set<string>): boolean {
+  const relPosix = rel.split(path.sep).join("/");
+
+  for (const pattern of ignore) {
+    const normalized = pattern.split(path.sep).join("/");
+
+    // tests/fixtures/**
+    if (normalized.endsWith("/**")) {
+      const base = normalized.slice(0, -3);
+      if (relPosix === base || relPosix.startsWith(base + "/")) {
+        return true;
+      }
+    }
+
+    // dist, node_modules
+    if (relPosix === normalized || relPosix.startsWith(normalized + "/")) {
+      return true;
+    }
+
+    // **/*.test.ts
+    if (normalized === "**/*.test.ts" && relPosix.endsWith(".test.ts")) {
+      return true;
+    }
+
+    if (normalized === "**/*.spec.ts" && relPosix.endsWith(".spec.ts")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Convert absolute file path to repo-relative POSIX path.
  * Returns null if file is outside the repo root.

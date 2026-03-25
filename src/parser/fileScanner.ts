@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { FileScanError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { isIgnoredPath } from "../utils/pathResolver";
 
 const DEFAULT_IGNORES = new Set([
   "node_modules",
@@ -61,6 +62,8 @@ export function discoverSourceFiles(opts: {
     for (const ent of entries) {
       const abs = path.join(dirAbs, ent.name);
       const rel = path.relative(repoRoot, abs);
+
+      if (isIgnoredPath(rel, ignore)) continue;
 
       // If entry is a directory, recurse unless ignored
       if (ent.isDirectory()) {
