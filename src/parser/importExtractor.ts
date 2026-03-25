@@ -10,6 +10,7 @@ import {
 } from "../utils/pathResolver";
 
 function normalizeExternal(specifier: string): string {
+  // Reduces deep imports like `pkg/sub/path` to the package name used in reports.
   if (specifier.startsWith("node:")) return specifier;
 
   if (specifier.startsWith("@")) {
@@ -146,6 +147,8 @@ export function parseImportsFromFile(opts: {
   }
 
   function pushEdge(specifier: string, node: ts.Node): void {
+    // Builds the edge location from the AST node, resolves local imports to files,
+    // and records a parser warning when a relative import cannot be resolved.
     const start = node.getStart(sourceFile);
     const line = sourceFile.getLineAndCharacterOfPosition(start).line + 1;
     const importText = sourceText.slice(start, node.end).trim();
@@ -191,6 +194,7 @@ export function parseImportsFromFile(opts: {
   }
 
   function visit(node: ts.Node): void {
+    // Handles static imports/exports, CommonJS `require`, and dynamic `import()`.
     if (
       ts.isImportDeclaration(node) &&
       ts.isStringLiteral(node.moduleSpecifier)
@@ -216,9 +220,19 @@ export function parseImportsFromFile(opts: {
       pushEdge(node.arguments[0].text, node);
     }
 
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length === 1 &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      pushEdge(node.arguments[0].text, node);
+    }
+
     ts.forEachChild(node, visit);
   }
 
+  // Walks the file once and collects every dependency edge and parser warning found.
   visit(sourceFile);
   // #region agent log
   fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {

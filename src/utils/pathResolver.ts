@@ -16,6 +16,38 @@ const RESOLVABLE_EXTENSIONS = [
   ".cjs",
 ];
 
+export function isIgnoredPath(rel: string, ignore: Set<string>): boolean {
+  const relPosix = rel.split(path.sep).join("/");
+
+  for (const pattern of ignore) {
+    const normalized = pattern.split(path.sep).join("/");
+
+    // tests/fixtures/**
+    if (normalized.endsWith("/**")) {
+      const base = normalized.slice(0, -3);
+      if (relPosix === base || relPosix.startsWith(base + "/")) {
+        return true;
+      }
+    }
+
+    // dist, node_modules
+    if (relPosix === normalized || relPosix.startsWith(normalized + "/")) {
+      return true;
+    }
+
+    // **/*.test.ts
+    if (normalized === "**/*.test.ts" && relPosix.endsWith(".test.ts")) {
+      return true;
+    }
+
+    if (normalized === "**/*.spec.ts" && relPosix.endsWith(".spec.ts")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Convert absolute file path to repo-relative POSIX path.
  * Returns null if file is outside the repo root.
@@ -24,6 +56,7 @@ export function toRepoRelativePosix(
   repoRoot: string,
   absPath: string,
 ): string | null {
+  // Rejects paths outside the repo so internal edges never point at external files.
   const rel = path.relative(repoRoot, absPath);
 
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
@@ -64,21 +97,15 @@ export function resolveImportToFile(
   const fromAbs = path.resolve(repoRoot, fromFile);
   const baseDir = path.dirname(fromAbs);
 
-  /**
-   * If specifier starts with "/":
-   * treat it as repo-root-relative, for example:
-   * "/src/utils/x" -> "<repoRoot>/src/utils/x"
-   *
-   * If specifier starts with ".":
-   * treat it as file-relative, for example:
-   * "../utils/x" -> relative to current file
-   */
+  // Leading `/` is treated as repo-root-relative; leading `.` stays relative to the importing file.
   const unresolved = specifier.startsWith("/")
     ? path.resolve(repoRoot, `.${specifier}`)
     : path.resolve(baseDir, specifier);
 
   logger.debug(`Base resolved path for "${specifier}": ${unresolved}`);
 
+  // Tries the raw path, extension variants, and `index.*` variants in the same order
+  // import paths are commonly resolved when extensions are omitted.
   const candidates: string[] = [
     unresolved,
     ...RESOLVABLE_EXTENSIONS.map((ext) => `${unresolved}${ext}`),

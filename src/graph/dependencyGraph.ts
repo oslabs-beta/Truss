@@ -2,9 +2,6 @@ import { parseImportsFromFile } from "../parser/importExtractor";
 import { DependencyEdge, ParserIssue } from "../core/types";
 import { logger } from "../utils/logger";
 
-/**
- * buildDependencyEdges()
- */
 export function buildDependencyEdges(opts: {
   repoRoot: string;
   files: string[];
@@ -35,6 +32,7 @@ export function buildDependencyEdges(opts: {
     }
   }
 
+  // Sorting by source location and target keeps reports and snapshots stable across runs.
   edges.sort(
     (a, b) =>
       a.fromFile.localeCompare(b.fromFile) ||
@@ -49,5 +47,6 @@ export function buildDependencyEdges(opts: {
 }
 
 function targetKey(e: DependencyEdge): string {
+  // Internal edges sort by destination file, external edges by package name.
   return e.importKind === "internal" ? e.toFile : e.packageName;
 }

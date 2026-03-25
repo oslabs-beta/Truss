@@ -7,26 +7,35 @@ exports.logger = void 0;
  * Keeps logging in one place instead of calling console directly everywhere.
  */
 exports.logger = {
+    isEnabled() {
+        return process.env.DEBUG === "true";
+    },
     /**
      * General info messages.
      * Use for normal progress logs.
      */
     info(message) {
-        console.log(message);
+        if (this.isEnabled()) {
+            console.log(message);
+        }
     },
     /**
      * Warning messages.
      * Use when something is unusual but not fatal.
      */
     warn(message) {
-        console.warn(message);
+        if (this.isEnabled()) {
+            console.warn(message);
+        }
     },
     /**
      * Error messages.
      * Use for failures and important problems.
      */
     error(message) {
-        console.error(message);
+        if (this.isEnabled()) {
+            console.error(message);
+        }
     },
     /**
      * Debug messages.
@@ -34,7 +43,7 @@ exports.logger = {
      * Can be turned on only when DEBUG=true.
      */
     debug(message) {
-        if (process.env.DEBUG === "true") {
+        if (this.isEnabled()) {
             console.debug(message);
         }
     },

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "kind": "report",
   "exitCode": 0,
   "checkedFiles": 2,
@@ -21,9 +21,21 @@
       "suppressionReason": "Temporary exception for legacy adapter."
     }
   ],
+  "parserIssues": [],
+  "analysis": {
+    "diagnostics": [],
+    "categories": {
+      "parser": 0,
+      "graph": 0,
+      "validation": 0,
+      "suppression": 0
+    }
+  },
   "summary": {
     "unsuppressedCount": 0,
     "suppressedCount": 1,
+    "parserIssueCount": 0,
+    "diagnosticCount": 0,
     "totalCount": 1
   }
 }

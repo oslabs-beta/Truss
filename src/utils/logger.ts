@@ -5,12 +5,18 @@
  * Keeps logging in one place instead of calling console directly everywhere.
  */
 export const logger = {
+  isEnabled(): boolean {
+    // All logger methods share the same DEBUG gate so CLI output stays quiet by default.
+    return process.env.DEBUG === "true";
+  },
   /**
    * General info messages.
    * Use for normal progress logs.
    */
   info(message: string): void {
-    console.log(message);
+    if (this.isEnabled()) {
+      console.log(message);
+    }
   },
 
   /**
@@ -18,7 +24,9 @@ export const logger = {
    * Use when something is unusual but not fatal.
    */
   warn(message: string): void {
-    console.warn(message);
+    if (this.isEnabled()) {
+      console.warn(message);
+    }
   },
 
   /**
@@ -26,7 +34,9 @@ export const logger = {
    * Use for failures and important problems.
    */
   error(message: string): void {
-    console.error(message);
+    if (this.isEnabled()) {
+      console.error(message);
+    }
   },
 
   /**
@@ -35,7 +45,7 @@ export const logger = {
    * Can be turned on only when DEBUG=true.
    */
   debug(message: string): void {
-    if (process.env.DEBUG === "true") {
+    if (this.isEnabled()) {
       console.debug(message);
     }
   },

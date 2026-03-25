@@ -6,17 +6,6 @@ import {
   Violation,
 } from "./types";
 
-/**
- * renderHumanReport()
- * Purpose: Format TrussReport into readable CLI text output.
- *
- * Input:
- *  - report: final TrussReport object (contains violations and summary)
- *  - opts.showSuppressed: optional flag to show suppressed violation details
- *
- * Output:
- *  - string (formatted text for terminal)
- */
 export function renderHumanReport(
   report: TrussReport,
   opts?: { showSuppressed?: boolean }
@@ -28,6 +17,8 @@ export function renderHumanReport(
   const parserIssueCount = report.parserIssues.length;
 
   if (uns > 0) {
+    // The failure path prints unsuppressed violations first, then optional suppressed
+    // details, followed by parser diagnostics and the final summary counts.
     lines.push(`Truss: Architectural violations found (${uns})`);
     lines.push("");
 
@@ -109,6 +100,7 @@ export function renderHumanReport(
 }
 
 function compareViolations(a: Violation, b: Violation): number {
+  // Keeps JSON output stable by sorting on rule, file, line, then import text.
   if (a.ruleName !== b.ruleName) return a.ruleName.localeCompare(b.ruleName);
   if (a.edge.fromFile !== b.edge.fromFile) {
     return a.edge.fromFile.localeCompare(b.edge.fromFile);
@@ -118,6 +110,7 @@ function compareViolations(a: Violation, b: Violation): number {
 }
 
 export function buildJsonReport(report: TrussReport, exitCode: number): JsonReportV1 {
+  // Copies and sorts violations so JSON output stays deterministic without mutating the report.
   const unsuppressed = [...report.unsuppressed].sort(compareViolations);
   const suppressed = [...report.suppressed].sort(compareViolations);
 
@@ -150,20 +143,12 @@ export function buildJsonError(error: string, exitCode: number): JsonErrorV1 {
   };
 }
 
-/**
- * renderJsonReport()
- * Purpose: Format TrussReport into machine-readable JSON.
- *
- * Input:
- *  - report: final TrussReport object
- *
- * Output:
- *  - string (JSON format with indentation)
- */
 export function renderJsonReport(report: TrussReport, exitCode: number): string {
+  // Serializes the shared versioned report envelope used by machine-readable output.
   return JSON.stringify(buildJsonReport(report, exitCode), null, 2);
 }
 
 export function renderJsonError(error: string, exitCode: number): string {
+  // Serializes non-report failures with the same envelope shape as successful JSON output.
   return JSON.stringify(buildJsonError(error, exitCode), null, 2);
 }

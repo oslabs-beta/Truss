@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { FileScanError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { isIgnoredPath } from "../utils/pathResolver";
 
 const DEFAULT_IGNORES = new Set([
   "node_modules",
@@ -18,25 +19,15 @@ const DEFAULT_IGNORES = new Set([
 
 const EXT_OK = new Set([".ts", ".tsx", ".js", ".jsx"]);
 
-/**
- * Recursively scans the repository and returns
- * all source files that match allowed extensions.
- *
- * - Starts from repoRoot
- * - Respects default and extra ignore rules
- * - Returns repo-relative POSIX paths
- */
-
 export function discoverSourceFiles(opts: {
   repoRoot: string;
   extraIgnores?: string[];
 }): string[] {
-
-  // Ensure repoRoot is absolute for consistent path handling
+  // Resolves the root once so every discovered file can be normalized the same way.
   const repoRoot = path.resolve(opts.repoRoot);
   logger.debug(`Scanning source files under: ${repoRoot}`);
 
-  // Build ignore set (default + user-defined)
+  // Combines built-in ignores with any repo-specific ignores from config.
   const ignore = new Set(DEFAULT_IGNORES);
   for (const i of opts.extraIgnores ?? []) ignore.add(i);
 
@@ -44,40 +35,38 @@ export function discoverSourceFiles(opts: {
 
   const results: string[] = [];
 
-  //Recursively walks a directory and collects valid source files
+  // Walks the directory tree depth-first and collects files with supported source extensions.
   function walk(dirAbs: string): void {
-    //const entries = fs.readdirSync(dirAbs, { withFileTypes: true });
-
     let entries;
 
     try {
-      entries = fs.readdirSync(dirAbs, { withFileTypes: true })
-    } catch (error) {
-
+      entries = fs.readdirSync(dirAbs, { withFileTypes: true });
+    } catch {
       logger.error(`Failed to read directory: ${dirAbs}`);
-      throw new FileScanError(`Failed to read directory: ${dirAbs}`)
+      throw new FileScanError(`Failed to read directory: ${dirAbs}`);
     }
 
-    for (const ent of entries) {
-      const abs = path.join(dirAbs, ent.name);
-      const rel = path.relative(repoRoot, abs);
+   for (const ent of entries) {
+  const abs = path.join(dirAbs, ent.name);
+  const rel = path.relative(repoRoot, abs);
 
-      // If entry is a directory, recurse unless ignored
-      if (ent.isDirectory()) {
-        if (ignore.has(ent.name)) continue;
-        walk(abs);
-        continue;
-      }
+  // Skip ignored files and directories before doing any deeper work.
+  if (isIgnoredPath(rel, ignore)) continue;
 
-      if (!ent.isFile()) continue;
-      if (!EXT_OK.has(path.extname(ent.name))) continue;
+  if (ent.isDirectory()) {
+    walk(abs);
+    continue;
+  }
 
-      // Normalize separators for cross-platform deterministic output.
-      results.push(rel.split(path.sep).join("/"));
-    }
+  if (!ent.isFile()) continue;
+  if (!EXT_OK.has(path.extname(ent.name))) continue;
+
+  results.push(rel.split(path.sep).join("/"));
+}
   }
 
   walk(repoRoot);
+  // Sorting guarantees deterministic file order for downstream analysis and snapshots.
   results.sort();
   logger.debug(`Discovered ${results.length} source files`);
   return results;

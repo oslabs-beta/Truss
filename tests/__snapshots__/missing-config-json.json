@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "kind": "error",
   "exitCode": 2,
   "error": "Config file not found: truss.yml. Add a truss.yml at the repo root or pass --config <path>."

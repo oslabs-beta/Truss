@@ -12,9 +12,6 @@ const logger_1 = require("../utils/logger");
 async function runCheck(opts) {
     try {
         const repoRoot = path.resolve(opts.repoRoot);
-        // #region agent log
-        fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "8d2d4f" }, body: JSON.stringify({ sessionId: "8d2d4f", runId: "pre-fix", hypothesisId: "H3", location: "src/core/engine.ts:runCheck:entry", message: "runCheck entry with import bindings", data: { repoRoot, evaluateRulesType: typeof validator_1.evaluateRules, applySuppressionsType: typeof validator_1.applySuppressions }, timestamp: Date.now() }) }).catch(() => { });
-        // #endregion
         logger_1.logger.debug(`Starting Truss check in ${repoRoot}`);
         // Load config
         logger_1.logger.debug("Loading config...");
@@ -38,9 +35,6 @@ async function runCheck(opts) {
         logger_1.logger.debug(`Collected ${parserIssues.length} parser issues`);
         // Evaluate rules
         logger_1.logger.debug("Evaluating architecture rules...");
-        // #region agent log
-        fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "8d2d4f" }, body: JSON.stringify({ sessionId: "8d2d4f", runId: "pre-fix", hypothesisId: "H4", location: "src/core/engine.ts:runCheck:beforeEvaluateRules", message: "about to call evaluateRules", data: { edgeCount: edges.length, parserIssueCount: parserIssues.length }, timestamp: Date.now() }) }).catch(() => { });
-        // #endregion
         const { violations } = (0, validator_1.evaluateRules)({ config, edges });
         logger_1.logger.debug(`Found ${violations.length} total violations before suppressions`);
         // Apply suppressions
@@ -76,12 +70,9 @@ async function runCheck(opts) {
             ? types_1.ExitCode.VIOLATIONS
             : types_1.ExitCode.OK;
         logger_1.logger.debug(`Check completed with exit code ${exitCode}`);
-        return { exitCode, report, analysis: report.analysis };
+        return { exitCode, report };
     }
     catch (e) {
-        // #region agent log
-        fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "8d2d4f" }, body: JSON.stringify({ sessionId: "8d2d4f", runId: "pre-fix", hypothesisId: "H5", location: "src/core/engine.ts:runCheck:catch", message: "runCheck caught error", data: { errorName: e.name, errorMessage: e.message, hasStack: Boolean(e.stack) }, timestamp: Date.now() }) }).catch(() => { });
-        // #endregion
         if (e instanceof errors_1.ConfigError) {
             logger_1.logger.error(`Config error: ${e.message}`);
             return { exitCode: types_1.ExitCode.CONFIG_ERROR, error: e.message };

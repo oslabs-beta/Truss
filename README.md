@@ -62,28 +62,40 @@ When `--format json` is provided, Truss prints exactly one JSON object to stdout
 
 All JSON output includes a versioned envelope:
 
-- `schemaVersion`: contract version (for example `"1.0.0"`)
+- `schemaVersion`: contract version (for example `"1.1.0"`)
 - `kind`: `"report"` or `"error"`
 
 ### Report output (`kind: "report"`)
 
 Field order is deterministic:
-`schemaVersion`, `kind`, `exitCode`, `checkedFiles`, `edges`, `unsuppressed`, `suppressed`, `summary`.
+`schemaVersion`, `kind`, `exitCode`, `checkedFiles`, `edges`, `unsuppressed`, `suppressed`, `parserIssues`, `analysis`, `summary`.
 
 Example:
 
 ```json
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "kind": "report",
   "exitCode": 1,
   "checkedFiles": 42,
   "edges": 137,
   "unsuppressed": [],
   "suppressed": [],
+  "parserIssues": [],
+  "analysis": {
+    "diagnostics": [],
+    "categories": {
+      "parser": 0,
+      "graph": 0,
+      "validation": 0,
+      "suppression": 0
+    }
+  },
   "summary": {
     "unsuppressedCount": 0,
     "suppressedCount": 0,
+    "parserIssueCount": 0,
+    "diagnosticCount": 0,
     "totalCount": 0
   }
 }
@@ -103,7 +115,7 @@ Example:
 
 ```json
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "kind": "error",
   "exitCode": 2,
   "error": "Failed to load truss.yml"
@@ -164,20 +176,6 @@ layers:
     - "server/**/*.ts"
   shared:
     - "shared/**/*.ts"
-
-Layer Resolution Rules:
-# Truss assigns exactly one layer to each file.
-	-	If no layer matches a file → configuration error.
-	-	If multiple layers match a file → configuration error.
-	- Layer resolution is deterministic and based only on config rules (no heuristics).
-
-Example:
-
-# Truss: Configuration error
-
-Layer conflict for file "src/domain/services/user.ts"
-Matched layers: domain, services
-Fix: make layer patterns non-overlapping so each file matches exactly one layer.
 
 rules:
   # Client must not import from server

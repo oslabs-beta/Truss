@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "kind": "report",
   "exitCode": 1,
   "checkedFiles": 2,
@@ -20,9 +20,21 @@
     }
   ],
   "suppressed": [],
+  "parserIssues": [],
+  "analysis": {
+    "diagnostics": [],
+    "categories": {
+      "parser": 0,
+      "graph": 0,
+      "validation": 0,
+      "suppression": 0
+    }
+  },
   "summary": {
     "unsuppressedCount": 1,
     "suppressedCount": 0,
+    "parserIssueCount": 0,
+    "diagnosticCount": 0,
     "totalCount": 1
   }
 }

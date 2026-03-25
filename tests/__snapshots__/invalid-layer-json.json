@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "kind": "error",
   "exitCode": 2,
   "error": "Invalid layer \"api\" in truss.yml. Expected a non-empty list of path patterns, for example: [\"src/api\"]."

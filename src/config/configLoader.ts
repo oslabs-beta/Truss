@@ -4,18 +4,13 @@ import * as yaml from "yaml";
 import { TrussConfig } from "./configSchema";
 import { ConfigError } from "../utils/errors";
 
-// export class ConfigError extends Error {
-//   constructor(message: string) {
-//     super(message);
-//     this.name = "ConfigError";
-//   }
-// }
-
 function labelPath(displayPath?: string, fallbackPath?: string): string {
+  // Prefers the display label shown to users, then the requested path, then the default filename.
   return displayPath ?? fallbackPath ?? "truss.yml";
 }
 
 function buildMissingConfigMessage(shownPath: string): string {
+  // The fix guidance changes depending on whether the default config path was expected.
   if (shownPath === "truss.yml") {
     return `Config file not found: ${shownPath}. Add a truss.yml at the repo root or pass --config <path>.`;
   }
@@ -24,6 +19,7 @@ function buildMissingConfigMessage(shownPath: string): string {
 }
 
 function formatYamlError(err: Error, shownPath: string): string {
+  // Keeps parser line and column details when the YAML library includes them.
   const detail = err.message.split("\n")[0].trim();
   const location = detail.match(/at line (\d+), column (\d+)/);
 
@@ -34,7 +30,7 @@ function formatYamlError(err: Error, shownPath: string): string {
   return `Invalid YAML in ${shownPath}. Fix the syntax and try again.`;
 }
 
-// Pseudo-flow: read YAML -> validate required shape -> return typed config.
+// Loads the YAML file, validates the required shape, and returns it as a typed config.
 export function loadTrussConfig(
   configPath: string,
   displayPath?: string,
@@ -76,7 +72,11 @@ export function loadTrussConfig(
   }
 
   for (const [layerName, patterns] of Object.entries(cfg.layers)) {
-  if (!Array.isArray(patterns) || patterns.length === 0 || patterns.some((p) => typeof p !== "string")) {
+    if (
+      !Array.isArray(patterns) ||
+      patterns.length === 0 ||
+      patterns.some((p) => typeof p !== "string")
+    ) {
       throw new ConfigError(
         `Invalid layer "${layerName}" in ${shownPath}. Expected a non-empty list of path patterns, for example: ["src/${layerName}"].`,
       );
@@ -91,6 +91,7 @@ export function loadTrussConfig(
 
   const knownLayers = new Set(layerNames);
 
+  // Validates each rule's shape before checking that every referenced layer name exists.
   for (const r of cfg.rules) {
     if (!r || typeof r !== "object") {
       throw new ConfigError(`Invalid rule entry in ${shownPath}: expected an object.`);
@@ -106,7 +107,11 @@ export function loadTrussConfig(
         `Rule "${r.name}" in ${shownPath} references unknown layer in "from": "${r.from}".`,
       );
     }
-    if (!Array.isArray(r.disallow) || r.disallow.length === 0 || r.disallow.some((x) => typeof x !== "string")) {
+    if (
+      !Array.isArray(r.disallow) ||
+      r.disallow.length === 0 ||
+      r.disallow.some((x) => typeof x !== "string")
+    ) {
       throw new ConfigError(
         `Rule "${r.name}" in ${shownPath} must define "disallow" as a non-empty string[].`,
       );
