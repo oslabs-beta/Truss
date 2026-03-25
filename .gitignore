@@ -8,6 +8,7 @@ build/
 
 # Ignore the "node_modules" dependency directory
 node_modules/
+dist/
 
 # Ignore specific files by name, anywhere in the repo
 .DS_Store # macOS system files

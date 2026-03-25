@@ -39,7 +39,8 @@ function fixturePath(name: string): string {
 
 function assertSnapshot(snapshotFile: string, actual: string): void {
   const expected = fs.readFileSync(path.join(snapshotsRoot, snapshotFile), "utf8");
-  assert.strictEqual(actual, expected);
+  const normalize = (s: string) => s.replaceAll(packageRoot, "<root>");
+  assert.strictEqual(normalize(actual), normalize(expected));
 }
 
 function assertConfigErrorSnapshots(fixtureName: string, snapshotPrefix: string): void {
