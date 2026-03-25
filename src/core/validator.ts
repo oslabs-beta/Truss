@@ -12,12 +12,12 @@ function matchLayer(file: string, layers: TrussConfig["layers"]): string | null 
       // Remove "**" at the end (very simple glob support).
       const normalized = pattern.replace(/\*\*$/, "");
 
-      // If file path starts with the pattern → it belongs to this layer.
+      // If file path starts with the pattern -> it belongs to this layer.
       if (file.startsWith(normalized)) return layerName;
     }
   }
 
-  // No match → file is not in any layer.
+  // No match -> file is not in any layer.
   return null;
 }
 
@@ -31,6 +31,7 @@ export function evaluateRules(opts: {
 }): { violations: Violation[]; fileToLayer: Map<string, string> } {
   const { config, edges } = opts;
 
+  // Cache: file path -> layer name (only for files that match).
   const fileToLayer = new Map<string, string>();
   const violations: Violation[] = [];
 

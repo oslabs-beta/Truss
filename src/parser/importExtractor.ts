@@ -3,7 +3,6 @@ import * as path from "node:path";
 import * as ts from "typescript";
 
 import { DependencyEdge, ParserIssue } from "../core/types";
-import { FileScanError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import {
   resolveImportToFile,
@@ -27,19 +26,87 @@ export function parseImportsFromFile(opts: {
   file: string;
 }): { edges: DependencyEdge[]; parserIssues: ParserIssue[] } {
   const abs = path.resolve(opts.repoRoot, opts.file);
+  const edges: DependencyEdge[] = [];
+  const parserIssues: ParserIssue[] = [];
+  // #region agent log
+  fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "e9e872",
+    },
+    body: JSON.stringify({
+      sessionId: "e9e872",
+      runId: "pre-fix",
+      hypothesisId: "H1",
+      location: "src/parser/importExtractor.ts:30",
+      message: "parseImportsFromFile entry",
+      data: { file: opts.file, abs },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
 
   logger.debug(`Parsing imports in file: ${opts.file}`);
 
   if (!fs.existsSync(abs)) {
-    throw new FileScanError(`Source file not found: ${opts.file}`);
+    // #region agent log
+    fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "e9e872",
+      },
+      body: JSON.stringify({
+        sessionId: "e9e872",
+        runId: "pre-fix",
+        hypothesisId: "H4",
+        location: "src/parser/importExtractor.ts:48",
+        message: "source file does not exist",
+        data: { file: opts.file, abs },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    parserIssues.push({
+      code: "SOURCE_FILE_NOT_FOUND",
+      severity: "error",
+      message: "Source file not found",
+      fromFile: opts.file,
+    });
+    return { edges, parserIssues };
   }
 
   let sourceText: string;
   try {
     sourceText = fs.readFileSync(abs, "utf8");
-  } catch {
+  } catch (error) {
     logger.error(`Failed to read file: ${opts.file}`);
-    throw new FileScanError(`Failed to read file: ${opts.file}`);
+    // #region agent log
+    fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "e9e872",
+      },
+      body: JSON.stringify({
+        sessionId: "e9e872",
+        runId: "pre-fix",
+        hypothesisId: "H4",
+        location: "src/parser/importExtractor.ts:72",
+        message: "source file read failed",
+        data: { file: opts.file, error: (error as Error).message },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    parserIssues.push({
+      code: "SOURCE_FILE_READ_FAILED",
+      severity: "error",
+      message: `Failed to read source file: ${(error as Error).message || "unknown error"}`,
+      fromFile: opts.file,
+    });
+    return { edges, parserIssues };
   }
 
   const sourceFile = ts.createSourceFile(
@@ -49,8 +116,35 @@ export function parseImportsFromFile(opts: {
     true,
   );
 
-  const edges: DependencyEdge[] = [];
-  const parserIssues: ParserIssue[] = [];
+  const parseDiagnostics =
+    (
+      sourceFile as ts.SourceFile & {
+        parseDiagnostics?: readonly ts.DiagnosticWithLocation[];
+      }
+    ).parseDiagnostics ?? [];
+
+  for (const diagnostic of parseDiagnostics) {
+    const line =
+      diagnostic.start !== undefined
+        ? sourceFile.getLineAndCharacterOfPosition(diagnostic.start).line + 1
+        : undefined;
+    const importText =
+      diagnostic.start !== undefined && diagnostic.length !== undefined
+        ? sourceText
+            .slice(diagnostic.start, diagnostic.start + diagnostic.length)
+            .trim() || undefined
+        : undefined;
+
+    parserIssues.push({
+      code: "TYPESCRIPT_SYNTAX_DIAGNOSTIC",
+      severity:
+        diagnostic.category === ts.DiagnosticCategory.Error ? "error" : "warning",
+      message: ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
+      fromFile: opts.file,
+      line,
+      importText,
+    });
+  }
 
   function pushEdge(specifier: string, node: ts.Node): void {
     // Builds the edge location from the AST node, resolves local imports to files,
@@ -140,6 +234,24 @@ export function parseImportsFromFile(opts: {
 
   // Walks the file once and collects every dependency edge and parser warning found.
   visit(sourceFile);
+  // #region agent log
+  fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "e9e872",
+    },
+    body: JSON.stringify({
+      sessionId: "e9e872",
+      runId: "pre-fix",
+      hypothesisId: "H5",
+      location: "src/parser/importExtractor.ts:205",
+      message: "parseImportsFromFile exit",
+      data: { file: opts.file, edges: edges.length, parserIssues: parserIssues.length },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
 
   return { edges, parserIssues };
 }

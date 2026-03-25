@@ -12,10 +12,24 @@ export function buildDependencyEdges(opts: {
   logger.debug(`Building dependency edges for ${opts.files.length} files`);
 
   for (const file of opts.files) {
-    // Each file contributes both resolved dependency edges and any non-fatal parser warnings.
-    const parsed = parseImportsFromFile({ repoRoot: opts.repoRoot, file });
-    edges.push(...parsed.edges);
-    parserIssues.push(...parsed.parserIssues);
+    try {
+      const parsed = parseImportsFromFile({ repoRoot: opts.repoRoot, file });
+      edges.push(...parsed.edges);
+      parserIssues.push(...parsed.parserIssues);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "unknown parser error";
+
+      logger.error(`Failed to analyze dependencies for ${file}: ${message}`);
+
+      // Isolate this file-level failure and continue analyzing the rest.
+      parserIssues.push({
+        code: "SOURCE_FILE_READ_FAILED",
+        severity: "error",
+        message: `Failed to analyze source file dependencies: ${message}`,
+        fromFile: file,
+      });
+    }
   }
 
   // Sorting by source location and target keeps reports and snapshots stable across runs.

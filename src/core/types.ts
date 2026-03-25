@@ -52,13 +52,17 @@ export type AnalysisDiagnostic = {
 
 // Parser-specific issue shape used for unresolved/bad import statements.
 export type ParserIssue = {
-  code: "UNRESOLVABLE_RELATIVE_IMPORT";
+  code:
+    | "UNRESOLVABLE_RELATIVE_IMPORT"
+    | "SOURCE_FILE_NOT_FOUND"
+    | "SOURCE_FILE_READ_FAILED"
+    | "TYPESCRIPT_SYNTAX_DIAGNOSTIC";
   severity: AnalysisDiagnosticSeverity;
   message: string;
   fromFile: string;
-  line: number;
-  specifier: string;
-  importText: string;
+  line?: number;
+  specifier?: string;
+  importText?: string;
 };
 
 export type AnalysisCategoryCounts = Record<AnalysisDiagnosticCategory, number>;

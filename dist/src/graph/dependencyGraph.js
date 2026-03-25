@@ -11,9 +11,22 @@ function buildDependencyEdges(opts) {
     const parserIssues = [];
     logger_1.logger.debug(`Building dependency edges for ${opts.files.length} files`);
     for (const file of opts.files) {
-        const parsed = (0, importExtractor_1.parseImportsFromFile)({ repoRoot: opts.repoRoot, file });
-        edges.push(...parsed.edges);
-        parserIssues.push(...parsed.parserIssues);
+        try {
+            const parsed = (0, importExtractor_1.parseImportsFromFile)({ repoRoot: opts.repoRoot, file });
+            edges.push(...parsed.edges);
+            parserIssues.push(...parsed.parserIssues);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : "unknown parser error";
+            logger_1.logger.error(`Failed to analyze dependencies for ${file}: ${message}`);
+            // Isolate this file-level failure and continue analyzing the rest.
+            parserIssues.push({
+                code: "SOURCE_FILE_READ_FAILED",
+                severity: "error",
+                message: `Failed to analyze source file dependencies: ${message}`,
+                fromFile: file,
+            });
+        }
     }
     edges.sort((a, b) => a.fromFile.localeCompare(b.fromFile) ||
         a.line - b.line ||
