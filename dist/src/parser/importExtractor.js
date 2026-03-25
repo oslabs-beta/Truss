@@ -19,8 +19,17 @@ function parseImportsFromFile(opts) {
     const abs = path.resolve(opts.repoRoot, opts.file);
     const edges = [];
     const parserIssues = [];
+    const edges = [];
+    const parserIssues = [];
     logger_1.logger.debug(`Parsing imports in file: ${opts.file}`);
     if (!fs.existsSync(abs)) {
+        parserIssues.push({
+            code: "SOURCE_FILE_NOT_FOUND",
+            severity: "error",
+            message: "Source file not found",
+            fromFile: opts.file,
+        });
+        return { edges, parserIssues };
         parserIssues.push({
             code: "SOURCE_FILE_NOT_FOUND",
             severity: "error",
@@ -34,7 +43,17 @@ function parseImportsFromFile(opts) {
         sourceText = fs.readFileSync(abs, "utf8");
     }
     catch (error) {
+    }
+    try { }
+    catch (error) {
         logger_1.logger.error(`Failed to read file: ${opts.file}`);
+        parserIssues.push({
+            code: "SOURCE_FILE_READ_FAILED",
+            severity: "error",
+            message: `Failed to read source file: ${error.message || "unknown error"}`,
+            fromFile: opts.file,
+        });
+        return { edges, parserIssues };
         parserIssues.push({
             code: "SOURCE_FILE_READ_FAILED",
             severity: "error",
