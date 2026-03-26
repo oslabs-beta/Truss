@@ -81,15 +81,28 @@ export type CheckOptions = {
 
 // shuangfei below rules
 
-class Violation {
-  constructor({ ruleId, message, file, line, fromLayer, toLayer }) {
-    this.ruleId = ruleId
-    this.message = message
-    this.file = file
-    this.line = line
-    this.fromLayer = fromLayer
-    this.toLayer = toLayer
-  }
+export interface ImportStatement {
+  source: string
+  line: number
 }
 
-module.exports = { Violation }
+export interface InlineSuppression {
+  line: number
+  ruleId?: string
+  expiresAt?: Date
+}
+
+export interface EvaluationContext {
+  filePath: string
+  imports: ImportStatement[]
+  getLayerFromPath(path: string): string
+}
+
+// export interface Violation {
+//   ruleId: string
+//   message: string
+//   file: string
+//   line: number
+//   fromLayer: string
+//   toLayer: string
+// }

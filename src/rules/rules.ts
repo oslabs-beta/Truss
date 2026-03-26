@@ -1,13 +1,17 @@
-// Rule.js
 
-class Rule {
-  constructor(config) {
+
+import { EvaluationContext, Violation } from "../core/types"
+
+export interface RuleConfig {
+  id: string
+}
+
+export abstract class Rule {
+  public readonly id: string
+
+  constructor(config: RuleConfig) {
     this.id = config.id
   }
 
-  evaluate(context) {
-    throw new Error("evaluate() must be implemented")
-  }
+  abstract evaluate(context: EvaluationContext): Violation[]
 }
-
-module.exports = Rule;

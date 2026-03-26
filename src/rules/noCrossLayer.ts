@@ -1,19 +1,17 @@
 // NoCrossLayerRule.js
 
+import { Rule } from "./rules"
+import { EvaluationContext, Violation } from "../core/types"
 
-import Rule, { EvaluationContext } from "./rules"
-import { Violation } from "../core/types"
-
-interface NoCrossLayerConfig {
+export interface NoCrossLayerConfig {
   id: string
-  type: "no-cross-layer"
   from: string
   to: string
 }
 
-export default class NoCrossLayerRule extends Rule {
-  from: string
-  to: string
+export class NoCrossLayerRule extends Rule {
+  private readonly from: string
+  private readonly to: string
 
   constructor(config: NoCrossLayerConfig) {
     super(config)
@@ -31,16 +29,14 @@ export default class NoCrossLayerRule extends Rule {
       const toLayer = getLayerFromPath(imp.source)
 
       if (fromLayer === this.from && toLayer === this.to) {
-        violations.push(
-          new Violation({
-            ruleId: this.id,
-            message: `Layer "${this.from}" cannot import "${this.to}"`,
-            file: filePath,
-            line: imp.line,
-            fromLayer,
-            toLayer
-          })
-        )
+        violations.push({
+          ruleId: this.id,
+          message: `Layer "${this.from}" cannot import "${this.to}"`,
+          file: filePath,
+          line: imp.line,
+          fromLayer,
+          toLayer
+        })
       }
     }
 
