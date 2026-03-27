@@ -1,6 +1,6 @@
 import { TrussConfig } from "../config/configSchema";
 import { SuppressedViolation, Violation, DependencyEdge } from "./types";
-
+import { matchesNoCrossLayerRule } from "../rules";
 /**
  * function matchLayer()
  * Purpose: Find a layer name for a file using config.layers patterns.
@@ -57,19 +57,26 @@ export function evaluateRules(opts: {
     if (!fromLayer || !toLayer) continue;
 
     for (const rule of config.rules) {
-      if (rule.from !== fromLayer) continue;
-      if (!rule.disallow.includes(toLayer)) continue;
+  if (
+    !matchesNoCrossLayerRule({
+      rule,
+      fromLayer,
+      toLayer,
+    })
+  ) {
+    continue;
+  }
 
-      violations.push({
-        ruleName: rule.name,
-        fromLayer,
-        toLayer,
-        edge,
-        reason:
-          rule.message ??
-          `${fromLayer} layer must not depend on ${toLayer} layer.`,
-      });
-    }
+  violations.push({
+    ruleName: rule.name,
+    fromLayer,
+    toLayer,
+    edge,
+    reason:
+      rule.message ??
+      `${fromLayer} layer must not depend on ${toLayer} layer.`,
+  });
+}
   }
 
   return { violations, fileToLayer };
