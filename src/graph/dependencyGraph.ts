@@ -83,27 +83,28 @@ export function resolveTransitiveEdges(
   const transitiveEdges: DependencyEdge[] = [];
 
   for (const startFile of [...graph.keys()].sort()) {
-    // visited guards against cycles
-    const visited = new Set<string>([startFile]);
+    // maps each reachable file to the shortest BFS path from startFile
+    const reachablePaths = new Map<string, string[]>();
+    reachablePaths.set(startFile, [startFile]);
     const queue: string[] = [startFile];
 
     while (queue.length > 0) {
       const current = queue.shift()!;
+      const currentPath = reachablePaths.get(current)!;
       const node = graph.get(current);
       if (!node) continue;
 
       for (const edge of [...node.outgoing].sort((a, b) =>
         a.to.file.localeCompare(b.to.file),
       )) {
-        if (!visited.has(edge.to.file)) {
-          visited.add(edge.to.file);
+        if (!reachablePaths.has(edge.to.file)) {
+          reachablePaths.set(edge.to.file, [...currentPath, edge.to.file]);
           queue.push(edge.to.file);
         }
       }
     }
 
-    // drop the origin itself
-    visited.delete(startFile);
+    reachablePaths.delete(startFile);
 
     const directTargets = new Set<string>(
       directEdges
@@ -111,13 +112,15 @@ export function resolveTransitiveEdges(
         .map((e) => e.toFile),
     );
 
-    for (const reachable of [...visited].sort()) {
+    for (const [reachable, path] of [...reachablePaths.entries()].sort(
+      (a, b) => a[0].localeCompare(b[0]),
+    )) {
       if (!directTargets.has(reachable)) {
         transitiveEdges.push({
           importKind: "internal",
           fromFile: startFile,
           toFile: reachable,
-          importText: "(transitive)",
+          importText: `(transitive: ${path.join(" → ")})`,
           line: 0,
         });
       }

@@ -7,6 +7,7 @@
     "truss": "dist/bin/truss.js"
   },
   "scripts": {
+    "prepare": "npm run build",
     "build": "tsc -p tsconfig.json",
     "test": "node --import tsx --test tests/**/*.test.ts",
     "truss:check": "tsx bin/truss.ts check",

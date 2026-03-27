@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.1.0",
+  "kind": "report",
+  "exitCode": 1,
+  "checkedFiles": 3,
+  "edges": 2,
+  "unsuppressed": [
+    {
+      "ruleName": "no-api-to-db",
+      "fromLayer": "api",
+      "toLayer": "db",
+      "edge": {
+        "importKind": "internal",
+        "fromFile": "src/api/user.ts",
+        "toFile": "src/db/client.ts",
+        "importText": "(transitive: src/api/user.ts → src/service/status.ts → src/db/client.ts)",
+        "line": 0
+      },
+      "reason": "API layer must not depend on DB layer."
+    }
+  ],
+  "suppressed": [],
+  "parserIssues": [],
+  "analysis": {
+    "diagnostics": [],
+    "categories": {
+      "parser": 0,
+      "graph": 0,
+      "validation": 0,
+      "suppression": 0
+    }
+  },
+  "summary": {
+    "unsuppressedCount": 1,
+    "suppressedCount": 0,
+    "parserIssueCount": 0,
+    "diagnosticCount": 0,
+    "totalCount": 1
+  }
+}

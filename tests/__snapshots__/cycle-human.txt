@@ -1,0 +1,5 @@
+Truss: No Architectural violations found
+Checked 2 files
+Parser issues: 1 (analysis continued)
+[warning] CIRCULAR_DEPENDENCY (parser) at src/service/a.ts
+Circular dependency: src/service/a.ts → src/service/b.ts → src/service/a.ts

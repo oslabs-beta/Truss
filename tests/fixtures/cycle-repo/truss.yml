@@ -1,0 +1,13 @@
+version: "1"
+
+layers:
+  service:
+    - "src/service"
+  db:
+    - "src/db"
+
+rules:
+  - name: no-service-to-db
+    from: service
+    disallow: [db]
+    message: Service must not depend on DB.

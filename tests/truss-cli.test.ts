@@ -94,6 +94,59 @@ test("json snapshot for unsuppressed violations", () => {
   assertSnapshot("violations-json.json", result.stdout);
 });
 
+test("transitive violations are detected in human output", () => {
+  const result = runTruss(["--repo", fixturePath("transitive-violation-repo")]);
+
+  assert.strictEqual(result.status, 1);
+  assert.strictEqual(result.stderr, "");
+  assertSnapshot("transitive-violations-human.txt", result.stdout);
+});
+
+test("transitive violations are detected in json output", () => {
+  const result = runTruss([
+    "--repo",
+    fixturePath("transitive-violation-repo"),
+    "--format",
+    "json",
+  ]);
+
+  assert.strictEqual(result.status, 1);
+  assert.strictEqual(result.stderr, "");
+  assertSnapshot("transitive-violations-json.json", result.stdout);
+});
+
+test("cycle fixture terminates with deterministic human and json output", () => {
+  const firstHuman = runTruss(["--repo", fixturePath("cycle-repo")]);
+  const secondHuman = runTruss(["--repo", fixturePath("cycle-repo")]);
+  const firstJson = runTruss([
+    "--repo",
+    fixturePath("cycle-repo"),
+    "--format",
+    "json",
+  ]);
+  const secondJson = runTruss([
+    "--repo",
+    fixturePath("cycle-repo"),
+    "--format",
+    "json",
+  ]);
+
+  assert.strictEqual(firstHuman.status, 0);
+  assert.strictEqual(firstHuman.stderr, "");
+  assert.strictEqual(secondHuman.status, 0);
+  assert.strictEqual(secondHuman.stderr, "");
+  assert.strictEqual(firstJson.status, 0);
+  assert.strictEqual(firstJson.stderr, "");
+  assert.strictEqual(secondJson.status, 0);
+  assert.strictEqual(secondJson.stderr, "");
+
+  assert.strictEqual(firstHuman.stdout, secondHuman.stdout);
+  assert.strictEqual(firstJson.stdout, secondJson.stdout);
+
+  assertSnapshot("cycle-human.txt", firstHuman.stdout);
+  assertSnapshot("cycle-json.json", firstJson.stdout);
+});
+
 test("exit code 0 and json snapshot for suppressed-only violations", () => {
   const result = runTruss(["--repo", fixturePath("suppressed-repo"), "--format", "json"]);
 

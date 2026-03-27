@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.1.0",
+  "kind": "report",
+  "exitCode": 0,
+  "checkedFiles": 2,
+  "edges": 2,
+  "unsuppressed": [],
+  "suppressed": [],
+  "parserIssues": [
+    {
+      "code": "CIRCULAR_DEPENDENCY",
+      "severity": "warning",
+      "message": "Circular dependency: src/service/a.ts → src/service/b.ts → src/service/a.ts",
+      "fromFile": "src/service/a.ts"
+    }
+  ],
+  "analysis": {
+    "diagnostics": [
+      {
+        "category": "parser",
+        "code": "CIRCULAR_DEPENDENCY",
+        "severity": "warning",
+        "message": "Circular dependency: src/service/a.ts → src/service/b.ts → src/service/a.ts",
+        "file": "src/service/a.ts"
+      }
+    ],
+    "categories": {
+      "parser": 1,
+      "graph": 0,
+      "validation": 0,
+      "suppression": 0
+    }
+  },
+  "summary": {
+    "unsuppressedCount": 0,
+    "suppressedCount": 0,
+    "parserIssueCount": 1,
+    "diagnosticCount": 1,
+    "totalCount": 0
+  }
+}
