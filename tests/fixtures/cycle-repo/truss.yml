@@ -1,0 +1,12 @@
+version: "1"
+
+layers:
+  cycle:
+    - "src"
+  other:
+    - "not-used"
+
+rules:
+  - name: no-cycle-to-other
+    from: cycle
+    disallow: [other]

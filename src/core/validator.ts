@@ -1,84 +1,126 @@
 import { TrussConfig } from "../config/configSchema";
 import { SuppressedViolation, Violation, DependencyEdge } from "./types";
 
-/**
- * function matchLayer()
- * Purpose: Find a layer name for a file using config.layers patterns.
- */
-function matchLayer(file: string, layers: TrussConfig["layers"]): string | null {
-  // Checks layer patterns in config order and returns the first one that matches the file path.
+function matchLayer(
+  file: string,
+  layers: TrussConfig["layers"],
+): string | null {
   for (const [layerName, patterns] of Object.entries(layers)) {
     for (const pattern of patterns) {
-      // Remove "**" at the end (very simple glob support).
       const normalized = pattern.replace(/\*\*$/, "");
-
-      // If file path starts with the pattern -> it belongs to this layer.
       if (file.startsWith(normalized)) return layerName;
     }
   }
-
-  // No match -> file is not in any layer.
   return null;
 }
 
-/**
- * evaluateRules()
- * Purpose: Check all dependency edges against config rules and collect violations.
- */
 export function evaluateRules(opts: {
   config: TrussConfig;
   edges: DependencyEdge[];
 }): { violations: Violation[]; fileToLayer: Map<string, string> } {
   const { config, edges } = opts;
 
-  // Cache: file path -> layer name (only for files that match).
   const fileToLayer = new Map<string, string>();
   const violations: Violation[] = [];
+  const internalEdges = edges.filter(
+    (edge): edge is Extract<DependencyEdge, { importKind: "internal" }> =>
+      edge.importKind === "internal",
+  );
+
+  // build adjacency list for the transitive BFS walk below
+  const outgoingByFile = new Map<string, typeof internalEdges>();
+  for (const edge of internalEdges) {
+    const bucket = outgoingByFile.get(edge.fromFile);
+    if (bucket) {
+      bucket.push(edge);
+      continue;
+    }
+    outgoingByFile.set(edge.fromFile, [edge]);
+  }
+
+  for (const [fromFile, outgoing] of outgoingByFile.entries()) {
+    outgoing.sort(
+      (a, b) =>
+        a.line - b.line ||
+        a.toFile.localeCompare(b.toFile) ||
+        a.importText.localeCompare(b.importText),
+    );
+    outgoingByFile.set(fromFile, outgoing);
+  }
 
   const getLayer = (file: string): string | null => {
-    // Caches resolved layers so repeated files do not need to scan the config again.
     const cached = fileToLayer.get(file);
     if (cached) return cached;
-
     const layer = matchLayer(file, config.layers);
     if (layer) fileToLayer.set(file, layer);
-
     return layer;
   };
 
-  // Only internal edges are checked. Each edge becomes a violation when its source layer
-  // matches a rule's `from` value and its target layer appears in that rule's `disallow` list.
-  for (const edge of edges) {
-    if (edge.importKind !== "internal") continue;
+  const emittedViolationKeys = new Set<string>();
 
+  for (const edge of internalEdges) {
     const fromLayer = getLayer(edge.fromFile);
-    const toLayer = getLayer(edge.toFile);
+    if (!fromLayer) continue;
 
-    if (!fromLayer || !toLayer) continue;
+    const applicableRules = config.rules.filter((rule) => rule.from === fromLayer);
+    if (applicableRules.length === 0) continue;
 
-    for (const rule of config.rules) {
-      if (rule.from !== fromLayer) continue;
-      if (!rule.disallow.includes(toLayer)) continue;
+    // BFS from the first imported file; track the full path so transitive
+    // violations show the chain rather than a misleading import text.
+    const queue: Array<{ file: string; path: string[] }> = [
+      { file: edge.toFile, path: [edge.fromFile, edge.toFile] },
+    ];
+    const visited = new Set<string>();
 
-      violations.push({
-        ruleName: rule.name,
-        fromLayer,
-        toLayer,
-        edge,
-        reason:
-          rule.message ??
-          `${fromLayer} layer must not depend on ${toLayer} layer.`,
-      });
+    while (queue.length > 0) {
+      const { file: currentFile, path: currentPath } = queue.shift()!;
+      if (visited.has(currentFile)) continue;
+      visited.add(currentFile);
+
+      const currentLayer = getLayer(currentFile);
+      if (currentLayer) {
+        for (const rule of applicableRules) {
+          if (!rule.disallow.includes(currentLayer)) continue;
+
+          const isDirect = currentPath.length === 2;
+          const importText = isDirect
+            ? edge.importText
+            : `(transitive: ${currentPath.join(" → ")})`;
+          const reportLine = isDirect ? edge.line : 0;
+
+          const key = [
+            rule.name,
+            edge.fromFile,
+            currentFile,
+            reportLine.toString(),
+            importText,
+          ].join("|");
+          if (emittedViolationKeys.has(key)) continue;
+          emittedViolationKeys.add(key);
+
+          violations.push({
+            ruleName: rule.name,
+            fromLayer,
+            toLayer: currentLayer,
+            edge: { ...edge, toFile: currentFile, importText, line: reportLine },
+            reason:
+              rule.message ??
+              `${fromLayer} layer must not depend on ${currentLayer} layer.`,
+          });
+        }
+      }
+
+      const next = outgoingByFile.get(currentFile);
+      if (!next) continue;
+      for (const out of next) {
+        queue.push({ file: out.toFile, path: [...currentPath, out.toFile] });
+      }
     }
   }
 
   return { violations, fileToLayer };
 }
 
-/**
- * applySuppressions()
- * Purpose: Split violations into unsuppressed + suppressed
- */
 export function applySuppressions(opts: {
   config: TrussConfig;
   violations: Violation[];
@@ -88,9 +130,8 @@ export function applySuppressions(opts: {
   const suppressed: SuppressedViolation[] = [];
   const unsuppressed: Violation[] = [];
 
-  // A suppression applies only when both the source file and rule name match the violation.
   for (const v of opts.violations) {
-    // Find suppression that matches file + rule
+    // match on source file + rule name
     const s = suppressions.find(
       (x) => x.file === v.edge.fromFile && x.rule === v.ruleName,
     );
@@ -100,10 +141,8 @@ export function applySuppressions(opts: {
   }
 
   const byLocation = (a: Violation, b: Violation) =>
-    a.edge.fromFile.localeCompare(b.edge.fromFile) ||
-    a.edge.line - b.edge.line;
+    a.edge.fromFile.localeCompare(b.edge.fromFile) || a.edge.line - b.edge.line;
 
-  // Sorting keeps CLI output and snapshots stable across runs.
   suppressed.sort(byLocation);
   unsuppressed.sort(byLocation);
 

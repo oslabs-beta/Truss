@@ -28,46 +28,9 @@ export function parseImportsFromFile(opts: {
   const abs = path.resolve(opts.repoRoot, opts.file);
   const edges: DependencyEdge[] = [];
   const parserIssues: ParserIssue[] = [];
-  // #region agent log
-  fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "e9e872",
-    },
-    body: JSON.stringify({
-      sessionId: "e9e872",
-      runId: "pre-fix",
-      hypothesisId: "H1",
-      location: "src/parser/importExtractor.ts:30",
-      message: "parseImportsFromFile entry",
-      data: { file: opts.file, abs },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-
   logger.debug(`Parsing imports in file: ${opts.file}`);
 
   if (!fs.existsSync(abs)) {
-    // #region agent log
-    fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "e9e872",
-      },
-      body: JSON.stringify({
-        sessionId: "e9e872",
-        runId: "pre-fix",
-        hypothesisId: "H4",
-        location: "src/parser/importExtractor.ts:48",
-        message: "source file does not exist",
-        data: { file: opts.file, abs },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     parserIssues.push({
       code: "SOURCE_FILE_NOT_FOUND",
       severity: "error",
@@ -82,24 +45,6 @@ export function parseImportsFromFile(opts: {
     sourceText = fs.readFileSync(abs, "utf8");
   } catch (error) {
     logger.error(`Failed to read file: ${opts.file}`);
-    // #region agent log
-    fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "e9e872",
-      },
-      body: JSON.stringify({
-        sessionId: "e9e872",
-        runId: "pre-fix",
-        hypothesisId: "H4",
-        location: "src/parser/importExtractor.ts:72",
-        message: "source file read failed",
-        data: { file: opts.file, error: (error as Error).message },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     parserIssues.push({
       code: "SOURCE_FILE_READ_FAILED",
       severity: "error",
@@ -234,24 +179,6 @@ export function parseImportsFromFile(opts: {
 
   // Walks the file once and collects every dependency edge and parser warning found.
   visit(sourceFile);
-  // #region agent log
-  fetch("http://127.0.0.1:7861/ingest/8b9c63fd-394c-4722-bece-a02463c6f64a", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "e9e872",
-    },
-    body: JSON.stringify({
-      sessionId: "e9e872",
-      runId: "pre-fix",
-      hypothesisId: "H5",
-      location: "src/parser/importExtractor.ts:205",
-      message: "parseImportsFromFile exit",
-      data: { file: opts.file, edges: edges.length, parserIssues: parserIssues.length },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   return { edges, parserIssues };
 }
