@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 import * as path from "node:path";
 import { Command } from "commander";
-import { loadTrussConfig } from "../src/config/configLoader";
-import { ConfigError } from "../src/utils/errors";
 import { runCheck } from "../src/core/engine";
 import {
   renderHumanReport,
@@ -30,72 +28,68 @@ program
     false,
   )
   .action(async (options) => {
-    const repoRoot = path.resolve(options.repo);
-    const configPath = options.config;
     const format = options.format;
 
-    if (format !== "human" && format !== "json") {
-      const msg = `Invalid --format value "${format}". Expected "human" or "json".`;
-      console.error("Truss: Configuration error");
-      console.error(msg);
-      process.exitCode = ExitCode.CONFIG_ERROR;
-      return;
-    }
-
-    if (format === "json" && options.showSuppressed) {
-      const msg = "--show-suppressed can only be used with --format human.";
-      console.log(renderJsonError(msg, ExitCode.CONFIG_ERROR));
-      process.exitCode = ExitCode.CONFIG_ERROR;
-      return;
-    }
-
-    // Preflight config errors so users get a clear exit=2 message.
     try {
-      loadTrussConfig(path.resolve(repoRoot, configPath), configPath);
-    } catch (e) {
-      const msg =
-        e instanceof ConfigError
-          ? e.message
-          : `Failed to load config: ${(e as Error).message}`;
-      if (format === "json") {
-        console.log(renderJsonError(msg, ExitCode.CONFIG_ERROR));
-      } else {
+      const repoRoot = path.resolve(options.repo);
+      const configPath = options.config;
+
+      if (format !== "human" && format !== "json") {
+        const msg = `Invalid --format value "${format}". Expected "human" or "json".`;
         console.error("Truss: Configuration error");
         console.error(msg);
+        process.exitCode = ExitCode.CONFIG_ERROR;
+        return;
       }
-      process.exitCode = ExitCode.CONFIG_ERROR;
-      return;
-    }
 
-    const result = await runCheck({
-      repoRoot,
-      configPath,
-      format,
-      showSuppressed: Boolean(options.showSuppressed),
-    });
+      if (format === "json" && options.showSuppressed) {
+        const msg = "--show-suppressed can only be used with --format human.";
+        console.log(renderJsonError(msg, ExitCode.CONFIG_ERROR));
+        process.exitCode = ExitCode.CONFIG_ERROR;
+        return;
+      }
 
-    if ("error" in result) {
-      if (format === "json") {
-        console.log(renderJsonError(result.error, result.exitCode));
+      const result = await runCheck({
+        repoRoot,
+        configPath,
+        format,
+        showSuppressed: Boolean(options.showSuppressed),
+      });
+
+      if ("error" in result) {
+        if (format === "json") {
+          console.log(renderJsonError(result.error, result.exitCode));
+        } else {
+          const label =
+            result.exitCode === ExitCode.CONFIG_ERROR
+              ? "Truss: Configuration error"
+              : "Truss: Internal error";
+          console.error(label);
+          console.error(result.error);
+        }
+      } else if (format === "json") {
+        console.log(renderJsonReport(result.report, result.exitCode));
       } else {
-        const label =
-          result.exitCode === ExitCode.CONFIG_ERROR
-            ? "Truss: Configuration error"
-            : "Truss: Internal error";
-        console.error(label);
-        console.error(result.error);
+        console.log(
+          renderHumanReport(result.report, {
+            showSuppressed: Boolean(options.showSuppressed),
+          }),
+        );
       }
-    } else if (format === "json") {
-      console.log(renderJsonReport(result.report, result.exitCode));
-    } else {
-      console.log(
-        renderHumanReport(result.report, {
-          showSuppressed: Boolean(options.showSuppressed),
-        }),
-      );
-    }
 
-    process.exitCode = result.exitCode;
+      process.exitCode = result.exitCode;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (format === "json") {
+        console.log(
+          renderJsonError(`Internal error: ${message}`, ExitCode.INTERNAL_ERROR),
+        );
+      } else {
+        console.error("Truss: Internal error");
+        console.error(message);
+      }
+      process.exitCode = ExitCode.INTERNAL_ERROR;
+    }
   });
 
 program.parse(process.argv);

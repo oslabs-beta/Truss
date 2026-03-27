@@ -1,0 +1,13 @@
+version: "1"
+
+layers:
+  api:
+    - "src/api"
+  db:
+    - "src/db"
+
+rules:
+  - name: no-api-to-db
+    from: api
+    disallow: [db]
+    message: API layer must not depend directly on DB layer.

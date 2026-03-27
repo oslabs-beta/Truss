@@ -2,5 +2,5 @@
   "schemaVersion": "1.1.0",
   "kind": "error",
   "exitCode": 3,
-  "error": "Internal error: Failed to read directory: /Users/ant/Desktop/CODESMITH/Truss/Truss/tests/fixtures/ok-repo/truss.yml"
+  "error": "Internal error: Failed to read directory: truss.yml"
 }

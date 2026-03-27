@@ -1,0 +1,12 @@
+Truss: Architectural violations found (1)
+
+no-api-to-db
+Layers: api -> db
+src/api/user.ts:0
+(transitive: src/api/user.ts → src/service/status.ts → src/db/client.ts)
+Reason: API layer must not depend on DB layer.
+
+Summary:
+Unsuppressed: 1
+Suppressed: 0
+Total: 1

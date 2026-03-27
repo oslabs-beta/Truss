@@ -42,8 +42,9 @@ export function discoverSourceFiles(opts: {
     try {
       entries = fs.readdirSync(dirAbs, { withFileTypes: true });
     } catch {
+      const shownDir = path.basename(dirAbs) || dirAbs;
       logger.error(`Failed to read directory: ${dirAbs}`);
-      throw new FileScanError(`Failed to read directory: ${dirAbs}`);
+      throw new FileScanError(`Failed to read directory: ${shownDir}`);
     }
 
    for (const ent of entries) {

@@ -93,6 +93,59 @@ test("json snapshot for unsuppressed violations", () => {
   assertSnapshot("violations-json.json", result.stdout);
 });
 
+test("transitive violations are detected in human output", () => {
+  const result = runTruss(["--repo", fixturePath("transitive-violation-repo")]);
+
+  assert.strictEqual(result.status, 1);
+  assert.strictEqual(result.stderr, "");
+  assertSnapshot("transitive-violations-human.txt", result.stdout);
+});
+
+test("transitive violations are detected in json output", () => {
+  const result = runTruss([
+    "--repo",
+    fixturePath("transitive-violation-repo"),
+    "--format",
+    "json",
+  ]);
+
+  assert.strictEqual(result.status, 1);
+  assert.strictEqual(result.stderr, "");
+  assertSnapshot("transitive-violations-json.json", result.stdout);
+});
+
+test("cycle fixture terminates with deterministic human and json output", () => {
+  const firstHuman = runTruss(["--repo", fixturePath("cycle-repo")]);
+  const secondHuman = runTruss(["--repo", fixturePath("cycle-repo")]);
+  const firstJson = runTruss([
+    "--repo",
+    fixturePath("cycle-repo"),
+    "--format",
+    "json",
+  ]);
+  const secondJson = runTruss([
+    "--repo",
+    fixturePath("cycle-repo"),
+    "--format",
+    "json",
+  ]);
+
+  assert.strictEqual(firstHuman.status, 0);
+  assert.strictEqual(firstHuman.stderr, "");
+  assert.strictEqual(secondHuman.status, 0);
+  assert.strictEqual(secondHuman.stderr, "");
+  assert.strictEqual(firstJson.status, 0);
+  assert.strictEqual(firstJson.stderr, "");
+  assert.strictEqual(secondJson.status, 0);
+  assert.strictEqual(secondJson.stderr, "");
+
+  assert.strictEqual(firstHuman.stdout, secondHuman.stdout);
+  assert.strictEqual(firstJson.stdout, secondJson.stdout);
+
+  assertSnapshot("cycle-human.txt", firstHuman.stdout);
+  assertSnapshot("cycle-json.json", firstJson.stdout);
+});
+
 test("exit code 0 and json snapshot for suppressed-only violations", () => {
   const result = runTruss(["--repo", fixturePath("suppressed-repo"), "--format", "json"]);
 
@@ -127,6 +180,56 @@ test("json includes parser diagnostics and category counts", () => {
   assert.strictEqual(parsed.summary.diagnosticCount, 1);
 });
 
+test("human output renders parser diagnostics for unresolved imports", () => {
+  const result = runTruss(["--repo", fixturePath("parser-issue-repo")]);
+
+  assert.strictEqual(result.status, 0);
+  assert.strictEqual(result.stderr, "");
+  assert.match(result.stdout, /Parser issues: 1 \(analysis continued\)/);
+  assert.match(result.stdout, /\[warning\] UNRESOLVABLE_RELATIVE_IMPORT \(parser\)/);
+  assert.match(result.stdout, /Import: import \{ missingValue \} from "\.\/missing";/);
+});
+
+test("syntax errors do not stop analysis of other files", () => {
+  const result = runTruss([
+    "--repo",
+    fixturePath("syntax-error-repo"),
+    "--format",
+    "json",
+  ]);
+
+  assert.strictEqual(result.status, 1);
+  assert.strictEqual(result.stderr, "");
+
+  const parsed = JSON.parse(result.stdout) as {
+    unsuppressed: Array<{ ruleName: string; edge: { fromFile: string } }>;
+    parserIssues: Array<{ code: string; fromFile: string }>;
+    analysis: { diagnostics: Array<{ category: string; code: string; file?: string }>; categories: Record<string, number> };
+    summary: { parserIssueCount: number; diagnosticCount: number };
+  };
+
+  assert.strictEqual(parsed.unsuppressed.length, 1);
+  assert.strictEqual(parsed.unsuppressed[0]?.ruleName, "no-api-to-db");
+  assert.strictEqual(parsed.unsuppressed[0]?.edge.fromFile, "src/api/user.ts");
+  assert.ok(
+    parsed.parserIssues.some(
+      (issue) =>
+        issue.code === "TYPESCRIPT_SYNTAX_DIAGNOSTIC" &&
+        issue.fromFile === "src/bad.ts",
+    ),
+  );
+  assert.ok(
+    parsed.analysis.diagnostics.some(
+      (diagnostic) =>
+        diagnostic.category === "parser" &&
+        diagnostic.code === "TYPESCRIPT_SYNTAX_DIAGNOSTIC" &&
+        diagnostic.file === "src/bad.ts",
+    ),
+  );
+  assert.strictEqual(parsed.analysis.categories.parser, parsed.summary.parserIssueCount);
+  assert.strictEqual(parsed.summary.diagnosticCount, parsed.analysis.diagnostics.length);
+});
+
 test("human snapshot for suppressed-only violations", () => {
   const result = runTruss(["--repo", fixturePath("suppressed-repo")]);
 
@@ -153,6 +256,27 @@ test("exit code 2 and snapshots for missing truss.yml", () => {
 
 test("exit code 2 and snapshots for invalid YAML", () => {
   assertConfigErrorSnapshots("invalid-yaml-repo", "invalid-yaml");
+});
+
+test("invalid YAML remains a config error in json output", () => {
+  const result = runTruss([
+    "--repo",
+    fixturePath("invalid-yaml-repo"),
+    "--format",
+    "json",
+  ]);
+
+  assert.strictEqual(result.status, 2);
+  assert.strictEqual(result.stderr, "");
+  const parsed = JSON.parse(result.stdout) as {
+    kind: string;
+    exitCode: number;
+    error: string;
+  };
+  assert.strictEqual(parsed.kind, "error");
+  assert.strictEqual(parsed.exitCode, 2);
+  assert.match(parsed.error, /^Invalid YAML in/);
+  assert.doesNotMatch(parsed.error, /^Internal error:/);
 });
 
 test("exit code 2 and snapshots for no rules defined", () => {
@@ -200,6 +324,30 @@ test("exit code 3 for internal runtime failures", () => {
   assert.strictEqual(result.status, 3);
   assert.strictEqual(result.stderr, "");
   assertSnapshot("internal-error-json.json", result.stdout);
+});
+
+test("unexpected failures remain internal errors in json output", () => {
+  const fileRepo = path.join(fixturePath("ok-repo"), "truss.yml");
+  const validConfig = path.join(fixturePath("ok-repo"), "truss.yml");
+  const result = runTruss([
+    "--repo",
+    fileRepo,
+    "--config",
+    validConfig,
+    "--format",
+    "json",
+  ]);
+
+  assert.strictEqual(result.status, 3);
+  assert.strictEqual(result.stderr, "");
+  const parsed = JSON.parse(result.stdout) as {
+    kind: string;
+    exitCode: number;
+    error: string;
+  };
+  assert.strictEqual(parsed.kind, "error");
+  assert.strictEqual(parsed.exitCode, 3);
+  assert.match(parsed.error, /^Internal error:/);
 });
 
 test("human snapshot for internal runtime failures", () => {
