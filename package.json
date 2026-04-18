@@ -15,10 +15,11 @@
   },
   "dependencies": {
     "commander": "^12.1.0",
+    "minimatch": "^10.2.5",
     "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "@types/node": "^22.15.18",
+    "@types/node": "^22.19.17",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }

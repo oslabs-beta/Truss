@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as path from "node:path";
+import { detectCycles } from "../src/graph/cycleDetector";
 
 import { buildDependencyEdges } from "../src/graph/dependencyGraph";
 import type { DependencyEdge } from "../src/core/types";
@@ -50,4 +51,32 @@ test("buildDependencyEdges prevents cycle recursion and deduplicates determinist
     second.edges.map(edgeKey),
     first.edges.map(edgeKey),
   );
+});
+
+test("detectCycles finds a simple cycle deterministically", () => {
+  const adjacency = new Map<string, Set<string>>([
+    ["src/a.ts", new Set(["src/b.ts"])],
+    ["src/b.ts", new Set(["src/c.ts"])],
+    ["src/c.ts", new Set(["src/a.ts"])],
+  ]);
+
+  const nodes = new Set(adjacency.keys());
+
+  const graph = {
+    nodes,
+    adjacency,
+  };
+
+  const cycles = detectCycles(graph);
+
+  assert.deepEqual(cycles, [
+    {
+      path: [
+        "src/a.ts",
+        "src/b.ts",
+        "src/c.ts",
+        "src/a.ts",
+      ],
+    },
+  ]);
 });

@@ -12,11 +12,16 @@
       "edge": {
         "fromFile": "src/api/user.ts",
         "toFile": "src/db/client.ts",
-        "importText": "(transitive: src/api/user.ts → src/service/status.ts → src/db/client.ts)",
+        "importText": "[transitive]",
         "line": 0,
         "importKind": "internal"
       },
-      "reason": "API layer must not depend on DB layer."
+      "reason": "API layer must not depend on DB layer.",
+      "path": [
+        "src/api/user.ts",
+        "src/service/status.ts",
+        "src/db/client.ts"
+      ]
     }
   ],
   "suppressed": [],

@@ -23,6 +23,7 @@ export type Violation = {
   toLayer: string | null;
   edge: DependencyEdge;
   reason: string;
+  path?: string[];
 };
 
 //A violation that was detected but intentionally suppressed

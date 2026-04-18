@@ -24,13 +24,18 @@ export function renderHumanReport(
     lines.push("");
 
     for (const v of report.unsuppressed) {
-      lines.push(`${v.ruleName}`);
-      lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
-      lines.push(`${v.edge.fromFile}:${v.edge.line}`);
-      lines.push(`${v.edge.importText}`);
-      lines.push(`Reason: ${v.reason}`);
-      lines.push("");
-    }
+  lines.push(`${v.ruleName}`);
+  lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
+  lines.push(`${v.edge.fromFile}:${v.edge.line}`);
+  lines.push(`${v.edge.importText}`);
+
+  if (v.path && v.path.length > 1) {
+    lines.push(`Path: ${v.path.join(" -> ")}`);
+  }
+
+  lines.push(`Reason: ${v.reason}`);
+  lines.push("");
+}
 
     if (sup > 0) {
       lines.push(`Suppressed violations: ${sup} (intentional, still reported)`);
@@ -39,11 +44,16 @@ export function renderHumanReport(
         lines.push("");
         report.suppressed.forEach((v, index) => {
           lines.push(`${v.ruleName} (suppressed)`);
-          lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
-          lines.push(`${v.edge.fromFile}:${v.edge.line}`);
-          lines.push(`${v.edge.importText}`);
-          lines.push(`Reason: ${v.reason}`);
-          lines.push(`Suppression: ${v.suppressionReason}`);
+lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
+lines.push(`${v.edge.fromFile}:${v.edge.line}`);
+lines.push(`${v.edge.importText}`);
+
+if (v.path && v.path.length > 1) {
+  lines.push(`Path: ${v.path.join(" -> ")}`);
+}
+
+lines.push(`Reason: ${v.reason}`);
+lines.push(`Suppression: ${v.suppressionReason}`);
           if (index < report.suppressed.length - 1) lines.push("");
         });
       }

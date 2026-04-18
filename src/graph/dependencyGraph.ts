@@ -136,3 +136,26 @@ function compareEdges(a: DependencyEdge, b: DependencyEdge): number {
     a.importText.localeCompare(b.importText)
   );
 }
+
+export function buildGraphFromEdges(
+  edges: DependencyEdge[],
+): Map<string, Set<string>> {
+  const graph = new Map<string, Set<string>>();
+
+  for (const edge of edges) {
+    if (edge.importKind !== "internal") continue;
+
+    const neighbors = graph.get(edge.fromFile);
+    if (neighbors) {
+      neighbors.add(edge.toFile);
+    } else {
+      graph.set(edge.fromFile, new Set([edge.toFile]));
+    }
+
+    if (!graph.has(edge.toFile)) {
+      graph.set(edge.toFile, new Set());
+    }
+  }
+
+  return graph;
+}

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 import * as path from "node:path";
 import { Command } from "commander";
-import { runCheck } from "../src/core/engine";
+import { runCheck, runAnalysis } from "../src/core/engine";
 import {
   renderHumanReport,
   renderJsonError,
   renderJsonReport,
 } from "../src/core/reporter";
 import { ExitCode } from "../src/core/types";
+import { renderGraphAsDot } from "../src/graph/dotRenderer";
 
 const program = new Command();
 
@@ -21,11 +22,11 @@ program
   .description("Check repository for architectural violations")
   .option("-c, --config <path>", "Path to truss.yml", "truss.yml")
   .option("--repo <path>", "Repo root", ".")
-  .option("--format <format>", "Output format: human|json", "human")
+  .option("--format <format>", 'Output format: human|json', "human")
   .option(
     "--show-suppressed",
     "Print suppressed violations in full detail (human only)",
-    false,
+    false
   )
   .action(async (options) => {
     const format = options.format;
@@ -73,7 +74,7 @@ program
         console.log(
           renderHumanReport(result.report, {
             showSuppressed: Boolean(options.showSuppressed),
-          }),
+          })
         );
       }
 
@@ -82,12 +83,74 @@ program
       const message = error instanceof Error ? error.message : String(error);
       if (format === "json") {
         console.log(
-          renderJsonError(`Internal error: ${message}`, ExitCode.INTERNAL_ERROR),
+          renderJsonError(`Internal error: ${message}`, ExitCode.INTERNAL_ERROR)
         );
       } else {
         console.error("Truss: Internal error");
         console.error(message);
       }
+      process.exitCode = ExitCode.INTERNAL_ERROR;
+    }
+  });
+
+program
+  .command("graph")
+  .description("Render the repository dependency graph as DOT")
+  .option("-c, --config <path>", "Path to truss.yml", "truss.yml")
+  .option("--repo <path>", "Repo root", ".")
+  .option("--format <format>", 'Output format: dot', "dot")
+  .action(async (options) => {
+    const format = options.format;
+
+    try {
+      const repoRoot = path.resolve(options.repo);
+      const configPath = options.config;
+
+      if (format !== "dot") {
+        const msg = `Invalid --format value "${format}". Expected "dot".`;
+        console.error("Truss: Configuration error");
+        console.error(msg);
+        process.exitCode = ExitCode.CONFIG_ERROR;
+        return;
+      }
+
+      const {
+  config,
+  graph,
+} = runAnalysis({
+  repoRoot,
+  configPath,
+});
+
+      const result = await runCheck({
+  repoRoot,
+  configPath,
+  format: "human",
+  showSuppressed: false,
+});
+
+const violations =
+  "report" in result
+    ? result.report.unsuppressed.flatMap((v) =>
+        v.edge.importKind === "internal"
+          ? [
+              {
+                from: v.edge.fromFile,
+                to: v.edge.toFile,
+              },
+            ]
+          : []
+      )
+    : [];
+
+const dot = renderGraphAsDot(graph, config.layers, violations);
+
+      process.stdout.write(`${dot}\n`);
+      process.exitCode = ExitCode.OK;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Truss: Internal error");
+      console.error(message);
       process.exitCode = ExitCode.INTERNAL_ERROR;
     }
   });

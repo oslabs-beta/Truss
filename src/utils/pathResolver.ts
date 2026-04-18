@@ -30,10 +30,14 @@ export function isIgnoredPath(rel: string, ignore: Set<string>): boolean {
       }
     }
 
-    // dist, node_modules
-    if (relPosix === normalized || relPosix.startsWith(normalized + "/")) {
-      return true;
-    }
+   // dist, node_modules
+if (
+  relPosix === normalized ||
+  relPosix.startsWith(normalized + "/") ||
+  relPosix.includes("/" + normalized + "/")
+) {
+  return true;
+}
 
     // **/*.test.ts
     if (normalized === "**/*.test.ts" && relPosix.endsWith(".test.ts")) {

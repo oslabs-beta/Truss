@@ -30,6 +30,15 @@ function formatYamlError(err: Error, shownPath: string): string {
   return `Invalid YAML in ${shownPath}. Fix the syntax and try again.`;
 }
 
+function normalizeLayerPattern(pattern: string): string {
+  const trimmed = pattern.trim().split(path.sep).join("/");
+
+  if (!trimmed) return trimmed;
+  if (trimmed.includes("*")) return trimmed;
+
+  return trimmed.endsWith("/") ? `${trimmed}**` : `${trimmed}/**`;
+}
+
 // Loads the YAML file, validates the required shape, and returns it as a typed config.
 export function loadTrussConfig(
   configPath: string,
@@ -83,6 +92,13 @@ export function loadTrussConfig(
     }
   }
 
+  const normalizedLayers = Object.fromEntries(
+  Object.entries(cfg.layers).map(([layerName, patterns]) => [
+    layerName,
+    patterns.map(normalizeLayerPattern),
+  ])
+);
+
   if (!cfg.rules || !Array.isArray(cfg.rules) || cfg.rules.length === 0) {
     throw new ConfigError(
       `No rules defined in ${shownPath}. Add at least one rule under "rules".`,
@@ -116,6 +132,13 @@ export function loadTrussConfig(
         `Rule "${r.name}" in ${shownPath} must define "disallow" as a non-empty string[].`,
       );
     }
+
+    if ("message" in r && r.message !== undefined && typeof r.message !== "string") {
+  throw new ConfigError(
+    `Rule "${r.name}" in ${shownPath} has invalid "message": expected a string.`,
+  );
+}
+
     for (const target of r.disallow) {
       if (!knownLayers.has(target)) {
         throw new ConfigError(
@@ -125,5 +148,8 @@ export function loadTrussConfig(
     }
   }
 
-  return cfg as TrussConfig;
+  return {
+  ...cfg,
+  layers: normalizedLayers,
+} as TrussConfig;
 }
