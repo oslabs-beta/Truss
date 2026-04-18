@@ -130,13 +130,13 @@ test("cycle fixture terminates with deterministic human and json output", () => 
     "json",
   ]);
 
-  assert.strictEqual(firstHuman.status, 0);
+  assert.strictEqual(firstHuman.status, 1);
   assert.strictEqual(firstHuman.stderr, "");
-  assert.strictEqual(secondHuman.status, 0);
+  assert.strictEqual(secondHuman.status, 1);
   assert.strictEqual(secondHuman.stderr, "");
-  assert.strictEqual(firstJson.status, 0);
+  assert.strictEqual(firstJson.status, 1);
   assert.strictEqual(firstJson.stderr, "");
-  assert.strictEqual(secondJson.status, 0);
+  assert.strictEqual(secondJson.status, 1);
   assert.strictEqual(secondJson.stderr, "");
 
   assert.strictEqual(firstHuman.stdout, secondHuman.stdout);

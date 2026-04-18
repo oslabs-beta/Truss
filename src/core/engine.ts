@@ -2,6 +2,7 @@ import * as path from "node:path";
 import { loadTrussConfig } from "../config/configLoader";
 import { discoverSourceFiles } from "../parser/fileScanner";
 import { buildDependencyEdges } from "../graph/dependencyGraph";
+import { buildGraphFromEdges } from "../graph/graphBuilder";
 import { applySuppressions, evaluateRules } from "./validator";
 import {
   AnalysisCategoryCounts,
@@ -14,49 +15,94 @@ import {
 } from "./types";
 import { ConfigError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { detectCycles } from "../graph/cycleDetector";
+
+// import { renderGraphAsDot } from "../graph/doRenderer";
+// import * as fs from "node:fs";
+type AnalysisResult = {
+  repoRoot: string;
+  config: ReturnType<typeof loadTrussConfig>;
+  files: string[];
+  edges: ReturnType<typeof buildDependencyEdges>["edges"];
+  parserIssues: ReturnType<typeof buildDependencyEdges>["parserIssues"];
+  graph: ReturnType<typeof buildGraphFromEdges>;
+  cycles: { path: string[] }[];
+};
+
+export function runAnalysis(opts: {
+  repoRoot: string;
+  configPath: string;
+}): AnalysisResult {
+  const repoRoot = path.resolve(opts.repoRoot);
+
+  logger.debug(`Starting Truss analysis in ${repoRoot}`);
+
+  logger.debug("Loading config...");
+  const config = loadTrussConfig(
+    path.resolve(repoRoot, opts.configPath),
+    opts.configPath
+  );
+
+  logger.debug("Scanning source files...");
+  const files = discoverSourceFiles({
+    repoRoot,
+    extraIgnores: config.ignore,
+  });
+  logger.debug(`Found ${files.length} source files`);
+
+  if (files.length === 0) {
+    throw new ConfigError(
+      "No source files found (.ts/.tsx/.js/.jsx). Check repoRoot/ignore settings."
+    );
+  }
+
+  logger.debug("Building dependency edges...");
+  const dependencyResult = buildDependencyEdges({ repoRoot, files });
+
+  const edges = dependencyResult.edges;
+  const parserIssues = dependencyResult.parserIssues;
+
+  logger.debug(`Built ${edges.length} dependency edges`);
+  logger.debug(`Collected ${parserIssues.length} parser issues`);
+
+  logger.debug("Building internal dependency graph...");
+  const graph = buildGraphFromEdges(edges);
+  logger.debug(`Graph nodes: ${graph.nodes.size}`);
+
+  logger.debug("Detecting dependency cycles...");
+  const cycles = detectCycles(graph);
+  logger.debug(`Detected ${cycles.length} cycle(s)`);
+
+  return {
+    repoRoot,
+    config,
+    files,
+    edges,
+    parserIssues,
+    graph,
+    cycles,
+  };
+}
 
 export async function runCheck(
   opts: CheckOptions
 ): Promise<CheckRunResult> {
   try {
-    const repoRoot = path.resolve(opts.repoRoot);
-
-    logger.debug(`Starting Truss check in ${repoRoot}`);
-
-    // Loads and validates the config before any filesystem or analysis work begins.
-    logger.debug("Loading config...");
-    const config = loadTrussConfig(
-      path.resolve(repoRoot, opts.configPath),
-      opts.configPath
-    );
-
-    // Scans the repo for supported source files after config ignores are applied.
-    logger.debug("Scanning source files...");
-    const files = discoverSourceFiles({
-      repoRoot,
-      extraIgnores: config.ignore,
-    });
-    logger.debug(`Found ${files.length} source files`);
-
-    if (files.length === 0) {
-      throw new ConfigError(
-        "No source files found (.ts/.tsx/.js/.jsx). Check repoRoot/ignore settings."
-      );
-    }
-
-    // Parses every discovered file and combines the dependency edges and parser warnings.
-    logger.debug("Building dependency graph...");
-    const graph = buildDependencyEdges({ repoRoot, files });
-
-    const edges = graph.edges;
-    const parserIssues = graph.parserIssues;
-
-    logger.debug(`Built ${edges.length} dependency edges`);
-    logger.debug(`Collected ${parserIssues.length} parser issues`);
+   const {
+  config,
+  files,
+  edges,
+  parserIssues,
+  graph,
+  cycles,
+} = runAnalysis({
+  repoRoot: opts.repoRoot,
+  configPath: opts.configPath,
+});
 
     // Converts dependency edges into violations by comparing layer relationships to the rules.
     logger.debug("Evaluating architecture rules...");
-    const { violations } = evaluateRules({ config, edges });
+    const { violations } = evaluateRules({ config, edges, graph });
     logger.debug(
       `Found ${violations.length} total violations before suppressions`
     );
@@ -72,9 +118,10 @@ export async function runCheck(
       `Unsuppressed: ${unsuppressed.length}, suppressed: ${suppressed.length}`
     );
 
-    // Exposes parser warnings through the structured diagnostics section of the report.
-    const diagnostics = buildDiagnostics(parserIssues);
-    const categories = countDiagnosticCategories(diagnostics);
+    const parserDiagnostics = buildDiagnostics(parserIssues);
+const graphDiagnostics = buildGraphDiagnostics(cycles);
+const diagnostics = [...parserDiagnostics, ...graphDiagnostics];
+const categories = countDiagnosticCategories(diagnostics);
 
     // Builds the final report shape consumed by both human and JSON formatters.
     const report: TrussReport = {
@@ -96,10 +143,14 @@ export async function runCheck(
       },
     };
 
-    const exitCode =
-      report.summary.unsuppressedCount > 0
-        ? ExitCode.VIOLATIONS
-        : ExitCode.OK;
+    const hasGraphErrors = diagnostics.some(
+  (d) => d.category === "graph" && d.severity === "error"
+);
+
+const exitCode =
+  report.summary.unsuppressedCount > 0 || hasGraphErrors
+    ? ExitCode.VIOLATIONS
+    : ExitCode.OK;
 
     logger.debug(`Check completed with exit code ${exitCode}`);
 
@@ -129,6 +180,18 @@ function buildDiagnostics(parserIssues: ParserIssue[]): AnalysisDiagnostic[] {
     file: issue.fromFile,
     line: issue.line,
     importText: issue.importText,
+  }));
+}
+
+function buildGraphDiagnostics(
+  cycles: { path: string[] }[]
+): AnalysisDiagnostic[] {
+  return cycles.map((cycle) => ({
+    category: "graph",
+    code: "DEPENDENCY_CYCLE",
+    severity: "error",
+    message: `Dependency cycle detected: ${cycle.path.join(" -> ")}`,
+    file: cycle.path[0],
   }));
 }
 

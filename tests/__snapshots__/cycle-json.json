@@ -1,17 +1,25 @@
 {
   "schemaVersion": "1.1.0",
   "kind": "report",
-  "exitCode": 0,
+  "exitCode": 1,
   "checkedFiles": 3,
   "edges": 4,
   "unsuppressed": [],
   "suppressed": [],
   "parserIssues": [],
   "analysis": {
-    "diagnostics": [],
+    "diagnostics": [
+      {
+        "category": "graph",
+        "code": "DEPENDENCY_CYCLE",
+        "severity": "error",
+        "message": "Dependency cycle detected: src/a.ts -> src/b.ts -> src/a.ts",
+        "file": "src/a.ts"
+      }
+    ],
     "categories": {
       "parser": 0,
-      "graph": 0,
+      "graph": 1,
       "validation": 0,
       "suppression": 0
     }
@@ -20,7 +28,7 @@
     "unsuppressedCount": 0,
     "suppressedCount": 0,
     "parserIssueCount": 0,
-    "diagnosticCount": 0,
+    "diagnosticCount": 1,
     "totalCount": 0
   }
 }
