@@ -6,6 +6,7 @@ import {
   TrussReport,
   Violation,
 } from "./types";
+import chalk from "chalk";
 
 export function renderHumanReport(
   report: TrussReport,
@@ -23,18 +24,46 @@ export function renderHumanReport(
     lines.push(`Truss: Architectural violations found (${uns})`);
     lines.push("");
 
-    for (const v of report.unsuppressed) {
-  lines.push(`${v.ruleName}`);
-  lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
-  lines.push(`${v.edge.fromFile}:${v.edge.line}`);
-  lines.push(`${v.edge.importText}`);
+    const direct = report.unsuppressed.filter(
+  (v) => !v.path || v.path.length <= 1
+);
 
-  if (v.path && v.path.length > 1) {
-    lines.push(`Path: ${v.path.join(" -> ")}`);
+const transitive = report.unsuppressed.filter(
+  (v) => v.path && v.path.length > 1
+);
+
+   const useColor = process.stdout.isTTY;
+
+const red = (text: string) => (useColor ? chalk.red(text) : text);
+const yellow = (text: string) => (useColor ? chalk.yellow(text) : text);
+
+if (direct.length > 0) {
+  lines.push(red(`Direct Violations (${direct.length})`));
+  lines.push("--------------------------------");
+
+  for (const v of direct) {
+    lines.push(`${red("[VIOLATION]")} ${v.ruleName}`);
+    lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
+    lines.push(`${v.edge.fromFile}:${v.edge.line}`);
+    lines.push(`${v.edge.importText}`);
+    lines.push(`Reason: ${v.reason}`);
+    lines.push("");
   }
+}
 
-  lines.push(`Reason: ${v.reason}`);
-  lines.push("");
+if (transitive.length > 0) {
+  lines.push(yellow(`Transitive Violations (${transitive.length})`));
+  lines.push("--------------------------------");
+
+  for (const v of transitive) {
+    lines.push(`${yellow("[TRANSITIVE VIOLATION]")} ${v.ruleName}`);
+    lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
+    lines.push(`${v.edge.fromFile}:${v.edge.line}`);
+    lines.push(`${v.edge.importText}`);
+    lines.push(`Path: ${v.path!.join(" -> ")}`);
+    lines.push(`Reason: ${v.reason}`);
+    lines.push("");
+  }
 }
 
     if (sup > 0) {

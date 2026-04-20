@@ -1,10 +1,18 @@
 {
-  "name": "truss",
-  "version": "0.1.0",
-  "private": true,
+  "name": "truss-lint",
+  "version": "0.1.2",
+  "private": false,
   "description": "Configuration-driven architectural boundary checks",
   "bin": {
-    "truss": "dist/bin/truss.js"
+    "truss-lint": "dist/bin/truss.js"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
     "prepare": "npm run build",
@@ -14,6 +22,7 @@
     "truss:check:json": "tsx bin/truss.ts check --format json"
   },
   "dependencies": {
+    "chalk": "^5.6.2",
     "commander": "^12.1.0",
     "minimatch": "^10.2.5",
     "yaml": "^2.8.1"
@@ -22,5 +31,15 @@
     "@types/node": "^22.19.17",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
-  }
+  },
+  "keywords": [
+    "architecture",
+    "dependency-graph",
+    "lint",
+    "static-analysis",
+    "typescript",
+    "javascript",
+    "cli"
+  ],
+  "main": "dist/src/index.js"
 }

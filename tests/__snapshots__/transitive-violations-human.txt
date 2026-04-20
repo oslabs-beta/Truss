@@ -1,6 +1,8 @@
 Truss: Architectural violations found (1)
 
-no-api-to-db
+Transitive Violations (1)
+--------------------------------
+[TRANSITIVE VIOLATION] no-api-to-db
 Layers: api -> db
 src/api/user.ts:0
 [transitive]

@@ -1,2 +1,2 @@
 Truss: Configuration error
-No rules defined in truss.yml. Add at least one rule under "rules".
+No source files found (.ts/.tsx/.js/.jsx). Check repoRoot/ignore settings.

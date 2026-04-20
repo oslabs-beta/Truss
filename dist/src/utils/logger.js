@@ -8,6 +8,7 @@ exports.logger = void 0;
  */
 exports.logger = {
     isEnabled() {
+        // All logger methods share the same DEBUG gate so CLI output stays quiet by default.
         return process.env.DEBUG === "true";
     },
     /**

@@ -19,3 +19,9 @@ config.py # or .env files containing sensitive API keys/credentials
 # Negation: ignore all .tmp files except for "important.tmp"
 *.tmp
 !important.tmp
+
+node_modules/
+.vscode/
+*.tgz
+truss-report.json
+dist/tests/
