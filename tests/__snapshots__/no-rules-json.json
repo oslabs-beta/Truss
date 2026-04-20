@@ -2,5 +2,5 @@
   "schemaVersion": "1.1.0",
   "kind": "error",
   "exitCode": 2,
-  "error": "No rules defined in truss.yml. Add at least one rule under \"rules\"."
+  "error": "No source files found (.ts/.tsx/.js/.jsx). Check repoRoot/ignore settings."
 }

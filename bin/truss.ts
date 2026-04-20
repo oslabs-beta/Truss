@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
 import { runCheck, runAnalysis } from "../src/core/engine";
@@ -89,6 +90,47 @@ program
         console.error("Truss: Internal error");
         console.error(message);
       }
+      process.exitCode = ExitCode.INTERNAL_ERROR;
+    }
+  });
+program
+  .command("init")
+  .description("Create a starter truss.yml in the current project")
+  .option("--force", "Overwrite existing truss.yml", false)
+  .action(async (options) => {
+    try {
+      const repoRoot = process.cwd();
+      const configPath = path.join(repoRoot, "truss.yml");
+
+      if (fs.existsSync(configPath) && !options.force) {
+        console.error("Truss: Configuration error");
+        console.error(
+          'truss.yml already exists. Use "truss-lint init --force" to overwrite it.'
+        );
+        process.exitCode = ExitCode.CONFIG_ERROR;
+        return;
+      }
+
+      const starterConfig = `version: "1"
+
+layers:
+  app:
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+
+rules: []
+`;
+
+      fs.writeFileSync(configPath, starterConfig, "utf8");
+      console.log("Truss: Created truss.yml");
+      console.log('Run "truss-lint check" to analyze your project.')
+      process.exitCode = ExitCode.OK;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Truss: Internal error");
+      console.error(message);
       process.exitCode = ExitCode.INTERNAL_ERROR;
     }
   });

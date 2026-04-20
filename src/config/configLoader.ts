@@ -99,11 +99,11 @@ export function loadTrussConfig(
   ])
 );
 
-  if (!cfg.rules || !Array.isArray(cfg.rules) || cfg.rules.length === 0) {
-    throw new ConfigError(
-      `No rules defined in ${shownPath}. Add at least one rule under "rules".`,
-    );
-  }
+  if (!("rules" in cfg) || !Array.isArray(cfg.rules)) {
+  throw new ConfigError(
+    `Invalid config in ${shownPath}: "rules" must be an array.`,
+  );
+}
 
   const knownLayers = new Set(layerNames);
 

@@ -1,6 +1,8 @@
 Truss: Architectural violations found (1)
 
-no-api-to-db
+Direct Violations (1)
+--------------------------------
+[VIOLATION] no-api-to-db
 Layers: api -> db
 src/api/user.ts:1
 import { db } from "../db/client";

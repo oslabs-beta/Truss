@@ -1,10 +1,12 @@
+/// <reference types="node" />
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 
-const packageRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const packageRoot = path.resolve(__dirname, "..");
 const fixturesRoot = path.join(packageRoot, "tests", "fixtures");
 const snapshotsRoot = path.join(packageRoot, "tests", "__snapshots__");
 
@@ -279,7 +281,7 @@ test("invalid YAML remains a config error in json output", () => {
   assert.doesNotMatch(parsed.error, /^Internal error:/);
 });
 
-test("exit code 2 and snapshots for no rules defined", () => {
+test("exit code 2 and snapshots for no source files found", () => {
   assertConfigErrorSnapshots("no-rules-repo", "no-rules");
 });
 

@@ -1,8 +1,41 @@
-# Truss CLI
+# Truss — Architecture Boundary Enforcement Tool
 
-`truss check` enforces architecture boundaries from `truss.yml` and returns CI-friendly exit codes.
+Truss is a configuration-driven static analysis tool that enforces architectural boundaries in JavaScript and TypeScript codebases using dependency graph analysis.
 
-## Workflow
+It operates on static import analysis without executing code.
+
+It detects direct and transitive architectural violations via dependency graph analysis and provides deterministic outputs for CI pipelines and developer workflows.
+
+---
+
+## Quick Start
+
+Run without installing:
+
+```bash
+npx truss-lint check
+```
+
+Or install globally:
+
+```bash
+npm install -g truss-lint
+truss-lint check
+```
+
+---
+
+## Dependency Graph Visualization
+
+Truss can render a dependency graph of your project with layer grouping and highlighted architectural violations.
+
+![Dependency Graph](./docs/graph.svg)
+
+---
+
+## How It Works
+
+Truss performs deterministic static analysis using a dependency graph pipeline:
 
 1. Load and validate `truss.yml`
 2. Discover source files (`.ts/.tsx/.js/.jsx`, ignore junk folders)
@@ -13,39 +46,102 @@
 7. Render human or JSON output
 8. Exit with status code
 
+---
+
+## Key Features
+
+- Graph-based dependency analysis
+- Detection of direct and transitive architectural violations via graph traversal
+- Dependency cycle detection integrated into analysis diagnostics
+- Layer-based architecture enforcement via configuration
+- Deterministic CLI and JSON outputs
+- CI integration for automated architectural checks
+- Visual graph rendering with violation highlighting
+
+---
+
+## Usage
+
+### 1. Install
+
+```bash
+npm install -D truss-lint
+```
+
+Or use without installing:
+
+```bash
+npx truss-lint check
+```
+
+---
+
+### 2. Create a config file
+
+Add a `truss.yml` file to your project root:
+
+```yaml
+version: "1"
+
+layers:
+  client:
+    - "client/**/*.ts"
+    - "client/**/*.tsx"
+  server:
+    - "server/**/*.ts"
+
+rules:
+  - name: no-client-to-server
+    from: client
+    disallow: [server]
+```
+
+---
+
+### 3. Run analysis
+
+```bash
+truss-lint check
+```
+
+---
+
+### 4. Generate dependency graph
+
+```bash
+truss-lint graph > graph.dot
+dot -Tsvg graph.dot -o graph.svg
+```
+
+---
+
 ## Exit Code Matrix
 
-- `0` No unsuppressed violations
-- `1` One or more unsuppressed architectural violations
-- `2` Configuration or CLI usage error
-- `3` Internal error
+- `0` No unsuppressed violations  
+- `1` One or more unsuppressed architectural violations  
+- `2` Configuration or CLI usage error  
+- `3` Internal error  
 
-## What Developers See on Failure
-
-- Rule name
-- Source and target layer
-- File path + line number
-- Import statement
-- Reason
-- Summary counts for unsuppressed/suppressed/total
+---
 
 ## Sample Output (Violation)
 
 ```text
 Truss: Architectural violations found (1)
 
-no-import
+[VIOLATION] no-api-to-db
 Layers: api -> db
 src/api/user.ts:15
 import { db } from "../db/client"
 Reason: API layer must not depend directly on DB layer.
 
-Suppressed violations: 1 (intentional, still reported)
 Summary:
 Unsuppressed: 1
-Suppressed: 1
-Total: 2
+Suppressed: 0
+Total: 1
 ```
+
+---
 
 ## Sample Output (Success)
 
@@ -54,23 +150,34 @@ Truss: No Architectural violations found
 Checked 9000 files
 ```
 
+---
+
+## Deterministic Output
+
+Truss guarantees stable and deterministic output across runs:
+
+- consistent sorting of violations  
+- stable JSON schema  
+- snapshot-safe CLI output  
+
+This ensures reliable CI checks and predictable developer experience.
+
+---
+
 ## JSON Output Contract
 
 When `--format json` is provided, Truss prints exactly one JSON object to stdout.
 
 ### Schema versioning
 
-All JSON output includes a versioned envelope:
+All JSON output includes:
 
-- `schemaVersion`: contract version (for example `"1.1.0"`)
-- `kind`: `"report"` or `"error"`
+- `schemaVersion`
+- `kind` (`report` or `error`)
+
+---
 
 ### Report output (`kind: "report"`)
-
-Field order is deterministic:
-`schemaVersion`, `kind`, `exitCode`, `checkedFiles`, `edges`, `unsuppressed`, `suppressed`, `parserIssues`, `analysis`, `summary`.
-
-Example:
 
 ```json
 {
@@ -101,17 +208,9 @@ Example:
 }
 ```
 
+---
+
 ### Error output (`kind: "error"`)
-
-Field order is deterministic:
-`schemaVersion`, `kind`, `exitCode`, `error`.
-
-`kind: "error"` is used when analysis does not complete normally:
-
-- `exitCode: 2` for configuration or CLI usage errors
-- `exitCode: 3` for internal/runtime failures
-
-Example:
 
 ```json
 {
@@ -122,94 +221,11 @@ Example:
 }
 ```
 
-### Deterministic ordering
+---
 
-- Violations are copied and sorted before serialization.
-- Sort keys: `ruleName`, `edge.fromFile`, `edge.line`, `edge.importText`.
-- Objects are built with explicit key order in reporter.
+## Continuous Integration
 
-### Compatibility policy
-
-- `1.x` versions allow additive, backward-compatible changes only.
-- Breaking changes (remove/rename/type/meaning changes) require a major bump (for example `2.0.0`).
-- In `1.x`, new optional keys must be appended to preserve stable snapshots and consumer parsing.
-
-## CLI Test Coverage
-
-The integration suite uses fixture repos and committed snapshots to keep the CLI contract explicit.
-
-- Fixture repos cover clean runs, unsuppressed violations, and suppressed-only violations.
-- Exit codes `0`, `1`, `2`, and `3` are asserted.
-- Human-readable snapshots are committed for clean, unsuppressed, and suppressed scenarios.
-- JSON snapshots are committed for clean, unsuppressed, suppressed, config-error, and internal-error scenarios.
-
-## Run Locally
-
-```bash
-npm install
-npm run truss:check
-npm run truss:check:json
-```
-
-## Run Truss on Local Project
-
-### Local-Project-Setup
-
-1. clone repository to local machine or use local project
-2. create a truss.yml config file in root directory
-3. run CLI command:
-
-```bash
-  npm run truss:check -- --repo /name/dir/example-local-repo --config truss.yml
-```
-
-### Example truss.yml in example-local-repo root directory
-
-```yaml
-version: "1"
-
-layers:
-  client:
-    - "client/**/*.ts"
-    - "client/**/*.tsx"
-  server:
-    - "server/**/*.ts"
-  shared:
-    - "shared/**/*.ts"
-
-rules:
-  # Client must not import from server
-  - name: no-client-to-server
-    from: client
-    disallow: [server]
-    message: Client must not import from server.
-
-  # Shared layer should not depend on client or server
-  - name: shared-is-independent
-    from: shared
-    disallow: [client, server]
-    message: Shared code must not import from client or server.
-
-policy:
-  failOnSuppressedViolations: false
-  failOnAnyViolation: false
-  maxSuppressions: 5
-  failOnInvalidSuppressions: true
-
-suppressions:
-  - file: some/file.ts
-    rule: no-client-to-server
-    reason: Temporary exception; refactor tracked in ticket X.
-    expiresAt: "2026-06-01"
-```
-
-### Run Truss on repo to check on
-
-```bash
-npm run truss:check -- --repo /name/dir/example-local-repo --config truss.yml
-```
-
-## CI (GitHub Actions)
+Truss integrates with CI pipelines to enforce architectural constraints.
 
 ### Fail PR on Violations
 
@@ -229,27 +245,21 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npm run truss:check
+      - run: npx truss-lint check
 ```
 
-### Upload JSON Report Artifact
+---
 
-```yaml
-name: Truss (JSON Report)
-on: [pull_request]
+## CLI Test Coverage
 
-jobs:
-  truss:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci
-      - run: npm run truss:check:json > truss-report.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: truss-report
-          path: truss-report.json
-```
+The integration suite uses fixture repos and committed snapshots to keep the CLI contract explicit.
+
+- Snapshot tests for human and JSON output  
+- Validation of exit codes (0–3)  
+- Coverage of clean, violation, suppressed, and error scenarios      
+      
+
+
+
+
+

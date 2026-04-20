@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderHumanReport = renderHumanReport;
 exports.buildJsonReport = buildJsonReport;
@@ -6,32 +9,46 @@ exports.buildJsonError = buildJsonError;
 exports.renderJsonReport = renderJsonReport;
 exports.renderJsonError = renderJsonError;
 const types_1 = require("./types");
-/**
- * renderHumanReport()
- * Purpose: Format TrussReport into readable CLI text output.
- *
- * Input:
- *  - report: final TrussReport object (contains violations and summary)
- *  - opts.showSuppressed: optional flag to show suppressed violation details
- *
- * Output:
- *  - string (formatted text for terminal)
- */
+const chalk_1 = __importDefault(require("chalk"));
 function renderHumanReport(report, opts) {
     const lines = [];
     const uns = report.unsuppressed.length;
     const sup = report.suppressed.length;
     const parserIssueCount = report.parserIssues.length;
     if (uns > 0) {
+        // The failure path prints unsuppressed violations first, then optional suppressed
+        // details, followed by parser diagnostics and the final summary counts.
         lines.push(`Truss: Architectural violations found (${uns})`);
         lines.push("");
-        for (const v of report.unsuppressed) {
-            lines.push(`${v.ruleName}`);
-            lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
-            lines.push(`${v.edge.fromFile}:${v.edge.line}`);
-            lines.push(`${v.edge.importText}`);
-            lines.push(`Reason: ${v.reason}`);
-            lines.push("");
+        const direct = report.unsuppressed.filter((v) => !v.path || v.path.length <= 1);
+        const transitive = report.unsuppressed.filter((v) => v.path && v.path.length > 1);
+        const useColor = process.stdout.isTTY;
+        const red = (text) => (useColor ? chalk_1.default.red(text) : text);
+        const yellow = (text) => (useColor ? chalk_1.default.yellow(text) : text);
+        if (direct.length > 0) {
+            lines.push(red(`Direct Violations (${direct.length})`));
+            lines.push("--------------------------------");
+            for (const v of direct) {
+                lines.push(`${red("[VIOLATION]")} ${v.ruleName}`);
+                lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
+                lines.push(`${v.edge.fromFile}:${v.edge.line}`);
+                lines.push(`${v.edge.importText}`);
+                lines.push(`Reason: ${v.reason}`);
+                lines.push("");
+            }
+        }
+        if (transitive.length > 0) {
+            lines.push(yellow(`Transitive Violations (${transitive.length})`));
+            lines.push("--------------------------------");
+            for (const v of transitive) {
+                lines.push(`${yellow("[TRANSITIVE VIOLATION]")} ${v.ruleName}`);
+                lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
+                lines.push(`${v.edge.fromFile}:${v.edge.line}`);
+                lines.push(`${v.edge.importText}`);
+                lines.push(`Path: ${v.path.join(" -> ")}`);
+                lines.push(`Reason: ${v.reason}`);
+                lines.push("");
+            }
         }
         if (sup > 0) {
             lines.push(`Suppressed violations: ${sup} (intentional, still reported)`);
@@ -42,6 +59,9 @@ function renderHumanReport(report, opts) {
                     lines.push(`Layers: ${v.fromLayer} -> ${v.toLayer}`);
                     lines.push(`${v.edge.fromFile}:${v.edge.line}`);
                     lines.push(`${v.edge.importText}`);
+                    if (v.path && v.path.length > 1) {
+                        lines.push(`Path: ${v.path.join(" -> ")}`);
+                    }
                     lines.push(`Reason: ${v.reason}`);
                     lines.push(`Suppression: ${v.suppressionReason}`);
                     if (index < report.suppressed.length - 1)
@@ -51,12 +71,7 @@ function renderHumanReport(report, opts) {
         }
         if (parserIssueCount > 0) {
             lines.push("");
-            lines.push(`Parser issues: ${parserIssueCount} (analysis continued)`);
-            lines.push("Diagnostics by category:");
-            lines.push(`- parser: ${report.analysis.categories.parser}`);
-            lines.push(`- graph: ${report.analysis.categories.graph}`);
-            lines.push(`- validation: ${report.analysis.categories.validation}`);
-            lines.push(`- suppression: ${report.analysis.categories.suppression}`);
+            lines.push(...renderDiagnosticsSection(report.analysis.diagnostics, parserIssueCount));
         }
         lines.push("Summary:");
         lines.push(`Unsuppressed: ${report.summary.unsuppressedCount}`);
@@ -89,11 +104,29 @@ function renderHumanReport(report, opts) {
         }
     }
     if (parserIssueCount > 0) {
-        lines.push(`Parser issues: ${parserIssueCount} (analysis continued)`);
+        lines.push(...renderDiagnosticsSection(report.analysis.diagnostics, parserIssueCount));
     }
     return lines.join("\n");
 }
+function renderDiagnosticsSection(diagnostics, parserIssueCount) {
+    const lines = [];
+    lines.push(`Parser issues: ${parserIssueCount} (analysis continued)`);
+    diagnostics.forEach((diagnostic, index) => {
+        const location = diagnostic.file && diagnostic.line !== undefined
+            ? `${diagnostic.file}:${diagnostic.line}`
+            : diagnostic.file ?? "unknown location";
+        lines.push(`[${diagnostic.severity}] ${diagnostic.code} (${diagnostic.category}) at ${location}`);
+        lines.push(diagnostic.message);
+        if (diagnostic.importText) {
+            lines.push(`Import: ${diagnostic.importText}`);
+        }
+        if (index < diagnostics.length - 1)
+            lines.push("");
+    });
+    return lines;
+}
 function compareViolations(a, b) {
+    // Keeps JSON output stable by sorting on rule, file, line, then import text.
     if (a.ruleName !== b.ruleName)
         return a.ruleName.localeCompare(b.ruleName);
     if (a.edge.fromFile !== b.edge.fromFile) {
@@ -104,6 +137,7 @@ function compareViolations(a, b) {
     return a.edge.importText.localeCompare(b.edge.importText);
 }
 function buildJsonReport(report, exitCode) {
+    // Copies and sorts violations so JSON output stays deterministic without mutating the report.
     const unsuppressed = [...report.unsuppressed].sort(compareViolations);
     const suppressed = [...report.suppressed].sort(compareViolations);
     return {
@@ -133,19 +167,11 @@ function buildJsonError(error, exitCode) {
         error,
     };
 }
-/**
- * renderJsonReport()
- * Purpose: Format TrussReport into machine-readable JSON.
- *
- * Input:
- *  - report: final TrussReport object
- *
- * Output:
- *  - string (JSON format with indentation)
- */
 function renderJsonReport(report, exitCode) {
+    // Serializes the shared versioned report envelope used by machine-readable output.
     return JSON.stringify(buildJsonReport(report, exitCode), null, 2);
 }
 function renderJsonError(error, exitCode) {
+    // Serializes non-report failures with the same envelope shape as successful JSON output.
     return JSON.stringify(buildJsonError(error, exitCode), null, 2);
 }
