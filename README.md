@@ -13,13 +13,14 @@ It detects direct and transitive architectural violations via dependency graph a
 Run without installing:
 
 ```bash
+npx truss-lint init
 npx truss-lint check
 ```
 
 Or install globally:
-
 ```bash
 npm install -g truss-lint
+truss-lint init
 truss-lint check
 ```
 
@@ -76,9 +77,18 @@ npx truss-lint check
 
 ---
 
-### 2. Create a config file
+## 2. Initialize configuration
 
-Add a `truss.yml` file to your project root:
+Create a starter configuration file in your project:
+
+```bash
+npx truss-lint init
+```
+This will generate a truss.yml file in your project root.
+
+## 3. Configure layers and rules
+
+Edit the generated truss.yml to define your architecture:
 
 ```yaml
 version: "1"
