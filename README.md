@@ -1,12 +1,20 @@
 # Truss — Architecture Boundary Enforcement Tool
 
-Truss is a configuration-driven static analysis tool that enforces architectural boundaries in JavaScript and TypeScript codebases using dependency graph analysis.
+Truss is a CLI tool that enforces architectural boundaries in JavaScript and TypeScript projects.
 
-It operates on static import analysis without executing code.
+It prevents unintended dependencies between layers, such as controllers importing database modules directly, by analyzing static imports and building a dependency graph.
 
-It detects direct and transitive architectural violations via dependency graph analysis and provides deterministic outputs for CI pipelines and developer workflows.
+Truss detects both direct and transitive violations and is designed for deterministic local runs and CI pipelines.
 
----
+## Why Truss
+
+As applications grow, architectural boundaries are often violated unintentionally:
+
+- controllers start importing database modules directly
+- routes bypass services
+- dependencies become tangled and hard to reason about
+
+Truss enforces these boundaries automatically, helping prevent architectural drift.
 
 ## Quick Start
 
@@ -18,13 +26,12 @@ npx truss-lint check
 ```
 
 Or install globally:
+
 ```bash
 npm install -g truss-lint
 truss-lint init
 truss-lint check
 ```
-
----
 
 ## Dependency Graph Visualization
 
@@ -32,63 +39,36 @@ Truss can render a dependency graph of your project with layer grouping and high
 
 ![Dependency Graph](./docs/graph.svg)
 
----
-
-## How It Works
-
-Truss performs deterministic static analysis using a dependency graph pipeline:
-
-1. Load and validate `truss.yml`
-2. Discover source files (`.ts/.tsx/.js/.jsx`, ignore junk folders)
-3. Parse imports and build dependency edges
-4. Assign files to layers
-5. Evaluate rules
-6. Apply suppressions
-7. Render human or JSON output
-8. Exit with status code
-
----
-
-## Key Features
-
-- Graph-based dependency analysis
-- Detection of direct and transitive architectural violations via graph traversal
-- Dependency cycle detection integrated into analysis diagnostics
-- Layer-based architecture enforcement via configuration
-- Deterministic CLI and JSON outputs
-- CI integration for automated architectural checks
-- Visual graph rendering with violation highlighting
-
----
-
 ## Usage
 
 ### 1. Install
+
+Install locally in your project:
 
 ```bash
 npm install -D truss-lint
 ```
 
-Or use without installing:
+Or run directly with `npx`:
 
 ```bash
+npx truss-lint init
 npx truss-lint check
 ```
 
----
-
-## 2. Initialize configuration
+### 2. Initialize configuration
 
 Create a starter configuration file in your project:
 
 ```bash
 npx truss-lint init
 ```
-This will generate a truss.yml file in your project root.
 
-## 3. Configure layers and rules
+This generates a `truss.yml` file in your project root.
 
-Edit the generated truss.yml to define your architecture:
+### 3. Configure layers and rules
+
+Edit the generated `truss.yml` to define your architecture:
 
 ```yaml
 version: "1"
@@ -106,52 +86,78 @@ rules:
     disallow: [server]
 ```
 
----
-
-### 3. Run analysis
+### 4. Run analysis
 
 ```bash
-truss-lint check
+npx truss-lint check
 ```
 
----
-
-### 4. Generate dependency graph
+### 5. Generate a dependency graph
 
 ```bash
-truss-lint graph > graph.dot
+npx truss-lint graph > graph.dot
 dot -Tsvg graph.dot -o graph.svg
 ```
 
----
+This helps visualize architectural structure and identify problematic dependencies.
+
+## How It Works
+
+Truss performs deterministic static analysis using a dependency graph pipeline:
+
+1. Load and validate `truss.yml`
+2. Discover source files (`.ts`, `.tsx`, `.js`, `.jsx`)
+3. Parse imports and build dependency edges
+4. Assign files to layers
+5. Evaluate rules
+6. Apply suppressions
+7. Render human-readable or JSON output
+8. Exit with a CI-friendly status code
+
+## Key Features
+
+- Graph-based dependency analysis
+- Detection of direct and transitive architectural violations via graph traversal
+- Dependency cycle detection integrated into analysis diagnostics
+- Layer-based architecture enforcement via configuration
+- Deterministic CLI and JSON outputs
+- CI integration for automated architectural checks
+- Visual graph rendering with violation highlighting
 
 ## Exit Code Matrix
 
-- `0` No unsuppressed violations  
-- `1` One or more unsuppressed architectural violations  
-- `2` Configuration or CLI usage error  
-- `3` Internal error  
-
----
+- `0` No unsuppressed violations
+- `1` One or more unsuppressed architectural violations
+- `2` Configuration or CLI usage error
+- `3` Internal error
 
 ## Sample Output (Violation)
 
 ```text
-Truss: Architectural violations found (1)
+Truss: Architectural violations found (2)
 
+Direct Violations (1)
+--------------------------------
 [VIOLATION] no-api-to-db
 Layers: api -> db
 src/api/user.ts:15
-import { db } from "../db/client"
+import { db } from "../db/client";
 Reason: API layer must not depend directly on DB layer.
 
-Summary:
-Unsuppressed: 1
-Suppressed: 0
-Total: 1
-```
+Transitive Violations (1)
+--------------------------------
+[TRANSITIVE VIOLATION] no-api-to-db
+Layers: api -> db
+src/api/user.ts:0
+[transitive]
+Path: src/api/user.ts -> src/service/status.ts -> src/db/client.ts
+Reason: API layer must not depend on DB layer.
 
----
+Summary:
+Unsuppressed: 2
+Suppressed: 0
+Total: 2
+```
 
 ## Sample Output (Success)
 
@@ -160,19 +166,15 @@ Truss: No Architectural violations found
 Checked 9000 files
 ```
 
----
-
 ## Deterministic Output
 
 Truss guarantees stable and deterministic output across runs:
 
-- consistent sorting of violations  
-- stable JSON schema  
-- snapshot-safe CLI output  
+- consistent sorting of violations
+- stable JSON schema
+- snapshot-safe CLI output
 
 This ensures reliable CI checks and predictable developer experience.
-
----
 
 ## JSON Output Contract
 
@@ -184,8 +186,6 @@ All JSON output includes:
 
 - `schemaVersion`
 - `kind` (`report` or `error`)
-
----
 
 ### Report output (`kind: "report"`)
 
@@ -218,8 +218,6 @@ All JSON output includes:
 }
 ```
 
----
-
 ### Error output (`kind: "error"`)
 
 ```json
@@ -231,11 +229,9 @@ All JSON output includes:
 }
 ```
 
----
-
 ## Continuous Integration
 
-Truss integrates with CI pipelines to enforce architectural constraints.
+Truss integrates with CI pipelines to enforce architectural constraints automatically.
 
 ### Fail PR on Violations
 
@@ -258,15 +254,13 @@ jobs:
       - run: npx truss-lint check
 ```
 
----
-
 ## CLI Test Coverage
 
 The integration suite uses fixture repos and committed snapshots to keep the CLI contract explicit.
 
-- Snapshot tests for human and JSON output  
-- Validation of exit codes (0–3)  
-- Coverage of clean, violation, suppressed, and error scenarios      
+- Snapshot tests for human-readable and JSON output
+- Validation of exit codes (`0`–`3`)
+- Coverage of clean, violation, suppressed, and error scenarios     
       
 
 
