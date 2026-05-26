@@ -1,10 +1,10 @@
 # Truss — Architecture Boundary Enforcement Tool
 
-Truss is a CLI tool that enforces architectural boundaries in JavaScript and TypeScript projects.
+Truss is a CLI tool that detects and enforces architectural boundaries in JavaScript and TypeScript projects, especially when integrated into CI pipelines.
 
-It prevents unintended dependencies between layers, such as controllers importing database modules directly, by analyzing static imports and building a dependency graph.
+It prevents unintended dependencies between layers, such as controllers importing database modules directly, by analyzing import/export declarations, CommonJS `require` calls, dynamic imports, and building a dependency graph.
 
-Truss detects both direct and transitive violations and is designed for deterministic local runs and CI pipelines.
+Truss detects both direct and transitive violations and is designed for deterministic local runs and CI-based enforcement.
 
 ## Why Truss
 
@@ -14,7 +14,7 @@ As applications grow, architectural boundaries are often violated unintentionall
 - routes bypass services
 - dependencies become tangled and hard to reason about
 
-Truss enforces these boundaries automatically, helping prevent architectural drift.
+Truss enforces these boundaries automatically when used in CI, helping prevent architectural drift before problematic code is merged.
 
 ## Quick Start
 
@@ -107,27 +107,31 @@ Truss performs deterministic static analysis using a dependency graph pipeline:
 
 1. Load and validate `truss.yml`
 2. Discover source files (`.ts`, `.tsx`, `.js`, `.jsx`)
-3. Parse imports and build dependency edges
-4. Assign files to layers
-5. Evaluate rules
-6. Apply suppressions
-7. Render human-readable or JSON output
-8. Exit with a CI-friendly status code
+3. Parse import/export declarations, CommonJS require calls, and dynamic imports
+4. Build dependency edges
+5. Assign files to layers
+6. Evaluate architectural rules
+7. Apply suppressions
+8. Render human-readable or JSON output
+9. Exit with a CI-friendly status code
+
+Type-only imports are excluded from runtime dependency analysis to avoid false-positive cycles from TypeScript import type declarations.
 
 ## Key Features
 
 - Graph-based dependency analysis
-- Detection of direct and transitive architectural violations via graph traversal
-- Dependency cycle detection integrated into analysis diagnostics
-- Layer-based architecture enforcement via configuration
-- Deterministic CLI and JSON outputs
-- CI integration for automated architectural checks
-- Visual graph rendering with violation highlighting
+-	Detection of direct and transitive architectural violations via graph traversal
+-	Dependency cycle detection integrated into analysis diagnostics
+-	Layer-based architecture enforcement via configuration
+-	Deterministic CLI and JSON outputs
+-	CI integration for automated architectural checks
+-	Visual graph rendering with violation highlighting
+-	Suppression support for intentional exceptions
 
 ## Exit Code Matrix
 
 - `0` No unsuppressed violations
-- `1` One or more unsuppressed architectural violations
+- `1` One or more unsuppressed architectural violations or blocking graph diagnostics
 - `2` Configuration or CLI usage error
 - `3` Internal error
 
@@ -193,7 +197,7 @@ All JSON output includes:
 {
   "schemaVersion": "1.1.0",
   "kind": "report",
-  "exitCode": 1,
+  "exitCode": 0,
   "checkedFiles": 42,
   "edges": 137,
   "unsuppressed": [],
@@ -233,6 +237,8 @@ All JSON output includes:
 
 Truss integrates with CI pipelines to enforce architectural constraints automatically.
 
+When Truss is run inside CI, unsuppressed architectural violations or blocking diagnostics cause the command to exit with a non-zero status code. This allows pull requests to fail before architecture-breaking changes are merged.
+
 ### Fail PR on Violations
 
 ```yaml
@@ -246,12 +252,20 @@ jobs:
   truss:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
-      - run: npx truss-lint check
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Truss architecture check
+        run: npx truss-lint check
 ```
 
 ## CLI Test Coverage
@@ -260,7 +274,9 @@ The integration suite uses fixture repos and committed snapshots to keep the CLI
 
 - Snapshot tests for human-readable and JSON output
 - Validation of exit codes (`0`–`3`)
-- Coverage of clean, violation, suppressed, and error scenarios     
+- Coverage of clean, violation, suppressed, and error scenarios
+- Coverage of parser diagnostics and graph diagnostics
+-	Coverage of deterministic cycle detection     
       
 
 
