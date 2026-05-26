@@ -139,12 +139,16 @@ function parseImportsFromFile(opts) {
         // Handles static imports/exports, CommonJS `require`, and dynamic `import()`.
         if (ts.isImportDeclaration(node) &&
             ts.isStringLiteral(node.moduleSpecifier)) {
-            pushEdge(node.moduleSpecifier.text, node);
+            if (!node.importClause?.isTypeOnly) {
+                pushEdge(node.moduleSpecifier.text, node);
+            }
         }
         if (ts.isExportDeclaration(node) &&
             node.moduleSpecifier &&
             ts.isStringLiteral(node.moduleSpecifier)) {
-            pushEdge(node.moduleSpecifier.text, node);
+            if (!node.isTypeOnly) {
+                pushEdge(node.moduleSpecifier.text, node);
+            }
         }
         if (ts.isCallExpression(node) &&
             ts.isIdentifier(node.expression) &&
