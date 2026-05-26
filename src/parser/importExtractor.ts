@@ -141,19 +141,23 @@ export function parseImportsFromFile(opts: {
   function visit(node: ts.Node): void {
     // Handles static imports/exports, CommonJS `require`, and dynamic `import()`.
     if (
-      ts.isImportDeclaration(node) &&
-      ts.isStringLiteral(node.moduleSpecifier)
-    ) {
-      pushEdge(node.moduleSpecifier.text, node);
-    }
+  ts.isImportDeclaration(node) &&
+  ts.isStringLiteral(node.moduleSpecifier)
+) {
+  if (!node.importClause?.isTypeOnly) {
+    pushEdge(node.moduleSpecifier.text, node);
+  }
+}
 
-    if (
-      ts.isExportDeclaration(node) &&
-      node.moduleSpecifier &&
-      ts.isStringLiteral(node.moduleSpecifier)
-    ) {
-      pushEdge(node.moduleSpecifier.text, node);
-    }
+if (
+  ts.isExportDeclaration(node) &&
+  node.moduleSpecifier &&
+  ts.isStringLiteral(node.moduleSpecifier)
+) {
+  if (!node.isTypeOnly) {
+    pushEdge(node.moduleSpecifier.text, node);
+  }
+}
 
     if (
       ts.isCallExpression(node) &&
