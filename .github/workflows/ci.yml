@@ -3,8 +3,6 @@ name: CI
 on:
   push:
     branches:
-      - main
-      - dev
       - "**"
   pull_request:
 
@@ -25,5 +23,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build package
+        run: npm run build
+
       - name: Run tests
         run: npm test
+
+      - name: Run Truss architecture check
+        run: npm run truss:check
