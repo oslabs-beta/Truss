@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { TrussReport } from "./types";
-import { renderJsonReport } from "./reporter";
+import { TrussReport } from "../core/types";
+import { renderJsonReport } from "../core/reporter";
 import { renderHtmlReport } from "./htmlReporter";
 
 export function writeReports(

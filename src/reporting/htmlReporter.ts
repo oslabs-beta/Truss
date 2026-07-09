@@ -1,4 +1,4 @@
-import { TrussReport } from "./types";
+import { TrussReport } from "../core/types";
 
 function escapeHtml(value: string): string {
   return value

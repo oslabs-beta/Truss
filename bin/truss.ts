@@ -10,8 +10,7 @@ import {
 } from "../src/core/reporter";
 import { ExitCode } from "../src/core/types";
 import { renderGraphAsDot } from "../src/graph/dotRenderer";
-import { renderHtmlReport } from "../src/core/htmlReporter";
-import { writeReports } from "../src/core/reportWriter";
+import { writeReports } from "../src/reporting/reportWriter";
 
 const program = new Command();
 
