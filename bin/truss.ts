@@ -11,6 +11,11 @@ import {
 import { ExitCode } from "../src/core/types";
 import { renderGraphAsDot } from "../src/graph/dotRenderer";
 import { writeReports } from "../src/reporting/reportWriter";
+import {
+  initTelemetry,
+  recordAnalysisMetrics,
+  shutdownTelemetry,
+} from "../src/observability/metrics";
 
 const program = new Command();
 
@@ -33,6 +38,8 @@ program
   )
   .action(async (options) => {
     const format = options.format;
+      initTelemetry();
+  const analysisStartedAt = performance.now();
 
     try {
       const repoRoot = path.resolve(options.repo);
@@ -59,6 +66,18 @@ program
         format,
         showSuppressed: Boolean(options.showSuppressed),
       });
+
+      const analysisDurationMs = performance.now() - analysisStartedAt;
+
+if ("report" in result) {
+  recordAnalysisMetrics({
+    durationMs: analysisDurationMs,
+    checkedFiles: result.report.checkedFiles,
+    dependencyEdges: result.report.edges,
+    violations: result.report.summary.unsuppressedCount,
+    diagnostics: result.report.summary.diagnosticCount,
+  });
+}
 
       if ("error" in result) {
         if (format === "json") {
@@ -100,6 +119,8 @@ program
   }
 }
 
+await shutdownTelemetry();
+
       process.exitCode = result.exitCode;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -111,6 +132,9 @@ program
         console.error("Truss: Internal error");
         console.error(message);
       }
+
+      await shutdownTelemetry();
+      
       process.exitCode = ExitCode.INTERNAL_ERROR;
     }
   });
