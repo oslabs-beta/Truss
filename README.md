@@ -302,7 +302,35 @@ The integration suite uses fixture repos and committed snapshots to keep the CLI
 - Validation of exit codes (`0`–`3`)
 - Coverage of clean, violation, suppressed, and error scenarios
 - Coverage of parser diagnostics and graph diagnostics
--	Coverage of deterministic cycle detection     
+-	Coverage of deterministic cycle detection  
+
+## OpenTelemetry Metrics
+
+Truss can emit OpenTelemetry metrics for analysis runs. Telemetry is disabled by default so normal CLI output stays clean.
+
+Enable console metrics output:
+
+```bash
+TRUSS_OTEL_CONSOLE=1 truss-lint check
+```
+
+Or during local development:
+
+```bash
+TRUSS_OTEL_CONSOLE=1 npx tsx bin/truss.ts check
+```
+
+Truss currently records:
+
+| Metric | Description |
+| --- | --- |
+| `truss.analysis.duration_ms` | Duration of a Truss analysis run in milliseconds |
+| `truss.files.scanned` | Number of source files scanned during analysis |
+| `truss.dependency_edges.count` | Number of dependency edges detected during analysis |
+| `truss.violations.count` | Number of unsuppressed architecture violations detected |
+| `truss.diagnostics.count` | Number of diagnostics produced during analysis |
+
+Telemetry is opt-in and intended for CI observability, debugging, and tracking analysis performance as repositories grow.
       
 
 
