@@ -239,6 +239,32 @@ Truss integrates with CI pipelines to enforce architectural constraints automati
 
 When Truss is run inside CI, unsuppressed architectural violations or blocking diagnostics cause the command to exit with a non-zero status code. This allows pull requests to fail before architecture-breaking changes are merged.
 
+## Running with Docker
+
+Build the image:
+
+```bash
+npm run docker:build
+```
+
+Display CLI help:
+
+```bash
+npm run docker:help
+```
+
+Run an architecture check against the current project:
+
+```bash
+npm run docker:check
+```
+
+Or run the image directly:
+
+```bash
+docker run --rm -v "$PWD:/workspace" -w /workspace truss-lint check
+```
+
 ### Fail PR on Violations
 
 ```yaml

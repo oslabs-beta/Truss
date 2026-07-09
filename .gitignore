@@ -25,3 +25,4 @@ node_modules/
 *.tgz
 truss-report.json
 dist/tests/
+reports/
