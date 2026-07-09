@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: Build, test, and architecture check
     runs-on: ubuntu-latest
 
     steps:
@@ -31,3 +32,18 @@ jobs:
 
       - name: Run Truss architecture check
         run: npm run truss:check
+
+  docker:
+    name: Docker build check
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: npm run docker:build
+
+      - name: Verify Docker CLI starts
+        run: npm run docker:help
