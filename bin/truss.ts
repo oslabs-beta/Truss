@@ -10,6 +10,8 @@ import {
 } from "../src/core/reporter";
 import { ExitCode } from "../src/core/types";
 import { renderGraphAsDot } from "../src/graph/dotRenderer";
+import { renderHtmlReport } from "../src/core/htmlReporter";
+import { writeReports } from "../src/core/reportWriter";
 
 const program = new Command();
 
@@ -24,6 +26,7 @@ program
   .option("-c, --config <path>", "Path to truss.yml", "truss.yml")
   .option("--repo <path>", "Repo root", ".")
   .option("--format <format>", 'Output format: human|json', "human")
+  .option("--report-dir <path>", "Directory to write report artifacts")
   .option(
     "--show-suppressed",
     "Print suppressed violations in full detail (human only)",
@@ -78,6 +81,25 @@ program
           })
         );
       }
+
+      if ("report" in result && options.reportDir) {
+  const { jsonPath, htmlPath } = writeReports(
+    result.report,
+    result.exitCode,
+    repoRoot,
+    options.reportDir
+  );
+
+  if (format === "human") {
+    console.log(
+      `JSON report written to ${path.relative(repoRoot, jsonPath)}`
+    );
+
+    console.log(
+      `HTML report written to ${path.relative(repoRoot, htmlPath)}`
+    );
+  }
+}
 
       process.exitCode = result.exitCode;
     } catch (error) {
