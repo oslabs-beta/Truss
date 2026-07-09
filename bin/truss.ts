@@ -16,6 +16,7 @@ import {
   recordAnalysisMetrics,
   shutdownTelemetry,
 } from "../src/observability/metrics";
+import { uploadReportsToS3 } from "../src/reporting/s3Publisher";
 
 const program = new Command();
 
@@ -31,6 +32,7 @@ program
   .option("--repo <path>", "Repo root", ".")
   .option("--format <format>", 'Output format: human|json', "human")
   .option("--report-dir <path>", "Directory to write report artifacts")
+  .option("--upload-s3", "Upload generated report artifacts to AWS S3", false)
   .option(
     "--show-suppressed",
     "Print suppressed violations in full detail (human only)",
@@ -117,6 +119,36 @@ if ("report" in result) {
       `HTML report written to ${path.relative(repoRoot, htmlPath)}`
     );
   }
+
+  if (options.uploadS3) {
+    const bucket = process.env.TRUSS_S3_BUCKET;
+
+    if (!bucket) {
+      console.error(
+        "Truss: Configuration error"
+      );
+      console.error(
+        "TRUSS_S3_BUCKET is required when using --upload-s3."
+      );
+      process.exitCode = ExitCode.CONFIG_ERROR;
+      await shutdownTelemetry();
+      return;
+    }
+
+    const uploaded = await uploadReportsToS3({
+      reportDir: path.resolve(repoRoot, options.reportDir),
+      bucket,
+      prefix: process.env.TRUSS_S3_PREFIX,
+    });
+
+    if (format === "human") {
+      for (const artifact of uploaded) {
+        console.log(
+          `Uploaded ${artifact.fileName} to s3://${bucket}/${artifact.key}`
+        );
+      }
+    }
+  }
 }
 
 await shutdownTelemetry();
@@ -134,7 +166,7 @@ await shutdownTelemetry();
       }
 
       await shutdownTelemetry();
-      
+
       process.exitCode = ExitCode.INTERNAL_ERROR;
     }
   });
