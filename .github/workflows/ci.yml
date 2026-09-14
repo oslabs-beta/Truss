@@ -27,8 +27,8 @@ jobs:
       - name: Build package
         run: npm run build
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests with coverage thresholds
+        run: npm run test:coverage
 
       - name: Run Truss architecture check
         run: npx tsx bin/truss.ts check --report-dir reports
