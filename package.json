@@ -22,7 +22,8 @@
     "truss:check:json": "tsx bin/truss.ts check --format json",
     "docker:build": "docker build -t truss-lint .",
     "docker:help": "docker run --rm truss-lint --help",
-    "docker:check": "docker run --rm -v \"$PWD:/workspace\" -w /workspace truss-lint check"
+    "docker:check": "docker run --rm -v \"$PWD:/workspace\" -w /workspace truss-lint check",
+    "test:coverage": "node --enable-source-maps --import tsx --test --experimental-test-coverage --test-coverage-exclude=\"tests/**\" --test-coverage-exclude=\"dist/**\" --test-coverage-exclude=\"node_modules/**\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/**/*.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1084.0",

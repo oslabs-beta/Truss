@@ -19,7 +19,7 @@ type CliResult = {
 function runTruss(args: string[]): CliResult {
   const result = spawnSync(
     process.execPath,
-    ["--import", "tsx", "bin/truss.ts", "check", ...args],
+    ["--enable-source-maps", "--import", "tsx", "bin/truss.ts", "check", ...args],
     {
       cwd: packageRoot,
       encoding: "utf8",
