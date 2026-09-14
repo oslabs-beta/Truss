@@ -1,5 +1,9 @@
 # Truss — Architecture Boundary Enforcement Tool
 
+[![CI](https://github.com/oslabs-beta/Truss/actions/workflows/ci.yml/badge.svg)](https://github.com/oslabs-beta/Truss/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/truss-lint)](https://www.npmjs.com/package/truss-lint)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 Truss is a CLI tool that detects and enforces architectural boundaries in JavaScript and TypeScript projects, especially when integrated into CI pipelines.
 
 It prevents unintended dependencies between layers, such as controllers importing database modules directly, by analyzing import/export declarations, CommonJS `require` calls, dynamic imports, and building a dependency graph.
@@ -294,6 +298,22 @@ jobs:
         run: npx truss-lint check
 ```
 
+## Testing
+
+Run the full test suite locally:
+
+```bash
+npm test
+```
+
+Run the suite with source-only coverage thresholds:
+
+```bash
+npm run test:coverage
+```
+
+CI enforces source-only minimum coverage of 80% for lines, branches, and functions. `tests/**`, `dist/**`, and `node_modules/**` are excluded from the coverage calculation.
+
 ## CLI Test Coverage
 
 The integration suite uses fixture repos and committed snapshots to keep the CLI contract explicit.
@@ -302,7 +322,7 @@ The integration suite uses fixture repos and committed snapshots to keep the CLI
 - Validation of exit codes (`0`–`3`)
 - Coverage of clean, violation, suppressed, and error scenarios
 - Coverage of parser diagnostics and graph diagnostics
--	Coverage of deterministic cycle detection  
+- Coverage of deterministic cycle detection
 
 ## OpenTelemetry Metrics
 
