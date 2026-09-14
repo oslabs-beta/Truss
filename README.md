@@ -237,6 +237,35 @@ All JSON output includes:
 }
 ```
 
+## Generated Reports
+
+Use `check --report-dir <path>` to write both reports to a directory resolved relative to the repository root (or an absolute path). The directory is created if needed. Reports are written when analysis produces a report, including when violations are found.
+
+- `truss-report.json`: the versioned JSON report with the exit code, file and dependency counts, unsuppressed and suppressed violations, parser issues, diagnostics, and summary counts.
+- `truss-report.html`: a standalone HTML summary with a generation timestamp, PASS/FAIL status, file and dependency counts, unsuppressed violations, and diagnostics. Unsuppressed violations or error diagnostics produce FAIL.
+
+From the Truss repository, run:
+
+```bash
+npx tsx bin/truss.ts check --report-dir reports
+```
+
+### Optional AWS S3 Publishing
+
+S3 publishing is opt-in. Add `--upload-s3` together with `--report-dir <path>` to upload the generated JSON and HTML files after they are written locally.
+
+- `TRUSS_S3_BUCKET`: required destination bucket when uploading.
+- `TRUSS_S3_PREFIX`: optional object-key prefix. Leading and trailing slashes are removed; without a prefix, each filename is used as its object key.
+
+With AWS credentials and region already configured, replace the example bucket with your destination bucket:
+
+```bash
+TRUSS_S3_BUCKET=your-report-bucket TRUSS_S3_PREFIX=truss/reports \
+  npx tsx bin/truss.ts check --report-dir reports --upload-s3
+```
+
+The publisher uses `S3Client({})`, so credentials must be supplied through the AWS SDK's standard Node.js credential provider chain. Truss does not provide a credential CLI option. Keep credentials outside the repository; do not commit secrets.
+
 ## Continuous Integration
 
 Truss integrates with CI pipelines to enforce architectural constraints automatically.
