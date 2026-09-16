@@ -20,10 +20,19 @@ import { uploadReportsToS3 } from "../src/reporting/s3Publisher";
 
 const program = new Command();
 
+// Source runs from bin/; compiled and published runs use dist/bin/.
+const sourcePackagePath = path.resolve(__dirname, "../package.json");
+const packagePath = fs.existsSync(sourcePackagePath)
+  ? sourcePackagePath
+  : path.resolve(__dirname, "../../package.json");
+const { version } = JSON.parse(fs.readFileSync(packagePath, "utf8")) as {
+  version: string;
+};
+
 program
   .name("truss")
   .description("Truss: configuration-driven architectural boundary checks")
-  .version("0.1.0");
+  .version(version);
 
 program
   .command("check")
