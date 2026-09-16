@@ -22,6 +22,16 @@ function temp(t: TestContext) {
   return dir;
 }
 
+test("CLI version matches package.json even outside the package directory", (t) => {
+  const expected = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
+  const dir = temp(t);
+  fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ version: "unrelated" }));
+  const result = run(["--version"], dir);
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.equal(result.stdout, `${expected}\n`);
+});
+
 test("init creates a usable starter, preserves existing configuration, and overwrites only with force", (t) => {
   const dir = temp(t);
   const first = run(["init"], dir);
